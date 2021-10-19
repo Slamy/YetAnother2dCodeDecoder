@@ -8,8 +8,10 @@
 #ifndef POLYNOM_H_
 #define POLYNOM_H_
 
+#include <cassert>
 #include <functional>
 #include <initializer_list>
+#include <iostream>
 #include <iterator>
 #include <sstream>
 #include <string>
@@ -28,12 +30,12 @@ template <class NumberType> class Polynom
 	std::vector<NumberType> values;
 
   public:
-	int getGrade() const
+	int getOrder() const
 	{
 		int grade = 0;
 		for (int i = 0; i < values.size(); i++)
 		{
-			if (values.at(i) > NumberType(0))
+			if (values.at(i) != NumberType(0))
 				grade = i;
 		}
 		return grade;
@@ -41,7 +43,7 @@ template <class NumberType> class Polynom
 
 	void optimize()
 	{
-		values.resize(getGrade()+1);
+		values.resize(getOrder() + 1);
 	}
 
 	void setPolynom(std::initializer_list<NumberType> il)
@@ -53,6 +55,7 @@ template <class NumberType> class Polynom
 		{
 			values.push_back(*it);
 		}
+		optimize();
 	}
 
 	Polynom() = default;
@@ -66,6 +69,50 @@ template <class NumberType> class Polynom
 	{
 		values = v;
 		optimize();
+	}
+
+	friend bool operator!=(const Polynom& lhs, const Polynom& rhs)
+	{
+		return !(lhs == rhs);
+	}
+
+	friend bool operator==(const Polynom& lhs, const Polynom& rhs)
+	{
+		int lhsOrder = lhs.getOrder();
+		if (lhsOrder != rhs.getOrder())
+			return false;
+
+		for (int i = 0; i <= lhsOrder; i++)
+		{
+			if (lhs.values.at(i) != rhs.values.at(i))
+				return false;
+		}
+
+		return true;
+	}
+
+	friend Polynom operator-(Polynom lhs, const Polynom& rhs)
+	{
+
+		int maxsize = std::max(lhs.values.size(), rhs.values.size());
+		lhs.values.resize(maxsize);
+		for (int j = 0; j < rhs.values.size(); j++)
+		{
+			lhs.values.at(j) = lhs.values.at(j) - rhs.values.at(j);
+		}
+		return lhs;
+	}
+
+	friend Polynom operator+(Polynom lhs, const Polynom& rhs)
+	{
+
+		int maxsize = std::max(lhs.values.size(), rhs.values.size());
+		lhs.values.resize(maxsize);
+		for (int j = 0; j < rhs.values.size(); j++)
+		{
+			lhs.values.at(j) = lhs.values.at(j) + rhs.values.at(j);
+		}
+		return lhs;
 	}
 
 	friend Polynom operator*(Polynom lhs, const Polynom& rhs)
@@ -103,43 +150,50 @@ template <class NumberType> class Polynom
 	 */
 	friend std::pair<Polynom, Polynom> operator/(Polynom lhs, const Polynom& rhs)
 	{
-		int lgrade	   = lhs.getGrade();
-		int rgrade	   = rhs.getGrade();
-		auto& dividend = lhs.values;
-		auto& divisor  = rhs.values;
+		int l_order	  = lhs.getOrder();
+		int r_order	  = rhs.getOrder();
+		auto dividend = lhs.values;
+		auto divisor  = rhs.values;
 
-		int maxgrade = std::max(lgrade, rgrade);
+		int maxgrade = std::max(l_order, r_order) + 1;
 
 		std::vector<NumberType> result(maxgrade);
 		// std::vector<NumberType> remainder(maxgrade);
 
-		int gradeDiff = lgrade - rgrade;
-		assert(gradeDiff > 0);
-		printf("gradeDiff %d\n", gradeDiff);
+		int gradeDiff = l_order - r_order;
+
+		// printf("gradeDiff %d\n", gradeDiff);
 
 		for (int i = 0; i <= gradeDiff; i++)
 		{
-			printf("Cycle %d Dividend:%s\n", i, lhs.asString().c_str());
+			// printf("Cycle %d Dividend:%s\n", i, lhs.asString().c_str());
 
-			NumberType divididendHighestRemainingGrade = dividend.at(lgrade - i);
-			NumberType divisorHighestGrade			   = divisor.at(rgrade);
+			NumberType divididendHighestRemainingGrade = dividend.at(l_order - i);
+			NumberType divisorHighestGrade			   = divisor.at(r_order);
 
 			NumberType factor = divididendHighestRemainingGrade / divisorHighestGrade;
 
-			printf("add to result: %dx^%d\n", static_cast<int>(factor), lgrade - i - rgrade);
-			result.at(lgrade - i - rgrade) = factor;
-			printf("%d %d %d\n", divididendHighestRemainingGrade, divisorHighestGrade, factor);
+			// printf("add to result: %dx^%d\n", static_cast<int>(factor), l_order - i - r_order);
+			result.at(l_order - i - r_order) = factor;
+			// printf("%d %d %d\n", divididendHighestRemainingGrade, divisorHighestGrade, factor);
 
-			dividend.at(lgrade-i) = 0;
-			for (int j = 1; j <= rgrade; j++)
+			for (int j = 0; j <= r_order; j++)
 			{
-				printf("Edit: %d %d\n", dividend.at(lgrade - j - i), divisor.at(rgrade - j));
+				// printf("Edit: %d %d\n", dividend.at(l_order - j - i), divisor.at(r_order - j));
 
-				dividend.at(lgrade - j - i) = dividend.at(lgrade - j - i) - factor * divisor.at(rgrade - j);
+				dividend.at(l_order - j - i) = dividend.at(l_order - j - i) - factor * divisor.at(r_order - j);
 
-				printf("After: %d\n", dividend.at(lgrade - j - i));
+				// printf("After: %d\n", dividend.at(l_order - j - i));
 			}
+			assert(dividend.at(l_order - i) == 0);
 		}
+		// dividend is now the remainer
+
+		std::cout << "Polynomdivision " << lhs.asString() << " : " << rhs.asString() << " = "
+				  << Polynom(result).asString() << " rest " << Polynom(dividend).asString() << std::endl;
+
+		// verify result by reversing this with multiplication
+		assert(Polynom(result) * rhs + dividend == lhs);
 
 		return std::make_pair(Polynom(result), Polynom(dividend));
 	}
@@ -162,7 +216,7 @@ template <class NumberType> class Polynom
 		return result;
 	}
 
-	std::string asString()
+	std::string asString() const
 	{
 		std::stringstream ss;
 
@@ -170,7 +224,7 @@ template <class NumberType> class Polynom
 		for (int i = values.size() - 1; i >= 0; i--)
 		{
 			int val = static_cast<int>(values.at(i));
-
+			// printf("val %d\n",val);
 			if (val)
 			{
 				if (firstPrint == false)
@@ -181,8 +235,8 @@ template <class NumberType> class Polynom
 				firstPrint = false;
 				if ((val > 1) || (i == 0) || (val < -1))
 					ss << val;
-				else if (val==-1)
-					ss <<"-";
+				else if (val == -1)
+					ss << "-";
 
 				if (i > 1)
 					ss << "x^" << i;

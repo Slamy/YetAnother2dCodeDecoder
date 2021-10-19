@@ -7,4 +7,5 @@
 
 #include "FiniteField.h"
 
-template <> std::array<int, 7> FiniteField<7>::reciprocal;
+//template <> std::array<int, 7> FiniteField<7>::reciprocal;
+//template <> FiniteField<7> FiniteField<7>::primitiveElement{0};
