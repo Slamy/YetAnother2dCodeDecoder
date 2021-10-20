@@ -122,6 +122,14 @@ template <int prime> class FiniteField
 		return lhs; // return the result by value (uses move constructor)
 	}
 
+	FiniteField& operator+=(const FiniteField& rhs)
+	{
+		assert(rhs.num < prime);
+		num = (num + rhs.num) % prime;
+
+		return *this; // return the result by reference
+	}
+
 	friend FiniteField operator-(FiniteField lhs, const FiniteField& rhs)
 	{
 		assert(lhs.num < prime);

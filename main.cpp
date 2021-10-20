@@ -1,78 +1,11 @@
 
 #include "FiniteField.h"
+#include "Matrix.h"
 #include "Polynom.h"
-#include "glm/matrix.hpp"
+#include <algorithm>
 #include <iostream>
+
 Polynom<FiniteField7> generator;
-
-template <class T> class Matrix
-{
-	std::vector<std::vector<T>> a;
-
-  public:
-	Matrix(std::vector<std::vector<T>> in)
-	{
-		a = in;
-	}
-
-	void appendRight(std::vector<T> toAppend)
-	{
-		for (int i = 0; i < toAppend.size(); i++)
-		{
-			a.at(i).push_back(toAppend.at(i));
-		}
-	}
-
-	void print()
-	{
-		for (auto& row : a)
-		{
-			for (auto& col : row)
-			{
-				std::cout << col << " ";
-			}
-			std::cout << std::endl;
-		}
-	}
-	/**
-	 * Stolen from https://www.tutorialspoint.com/cplusplus-program-to-implement-gauss-jordan-elimination
-	 *
-	 * @tparam T
-	 * @param a
-	 * @return
-	 */
-	std::vector<T> gauss_jordan_elim()
-	{
-		int n = a.size();
-		std::vector<T> x(n);
-		int i, j, k; // declare variables and matrixes as
-		T b;
-
-		// to find the elements of diagonal matrix
-		for (j = 0; j < n; j++)
-		{
-			for (i = 0; i < n; i++)
-			{
-				if (i != j)
-				{
-					b = a.at(i).at(j) / a.at(j).at(j);
-					for (k = 0; k <= n; k++)
-					{
-						a.at(i).at(k) = a.at(i).at(k) - b * a.at(j).at(k);
-					}
-				}
-			}
-		}
-		std::cout << "\nThe solution is:\n";
-		for (i = 0; i < n; i++)
-		{
-			x.at(i) = a.at(i).at(n) / a.at(i).at(i);
-			std::cout << "x" << i << "=" << x.at(i) << " ";
-		}
-		std::cout << std::endl;
-		return x;
-	}
-};
 
 void setup()
 {
@@ -134,18 +67,20 @@ int main()
 	FiniteField7::buildReciprocal();
 	FiniteField7::findPrimitiveElement();
 
+	{
+		std::vector<std::vector<float>> matrix{{1, 2, -4, 2}, {7, 6, -2, -5}, {0, -3, -5, -8}};
+		std::vector<float> result;
+		Matrix<float> m(matrix);
+		m.print();
+		result = m.gauss_jordan_elim();
+		m.print();
+	}
+	return 0;
+
 	std::cout << "Primitive Element " << FiniteField7::getPrimitiveElement() << std::endl;
 
 	setup();
 	receiver(sender());
-
-	std::vector<std::vector<float>> matrix{{1, 2, -4, 2}, {7, 6, -2, -5}, {0, -3, -5, -8}};
-	std::vector<float> result;
-	Matrix<float> m(matrix);
-	m.print();
-	result = m.gauss_jordan_elim();
-	m.print();
-	return 0;
 
 	{
 		FiniteField7 a(3);
