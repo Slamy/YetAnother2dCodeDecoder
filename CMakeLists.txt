@@ -2,17 +2,24 @@ cmake_minimum_required(VERSION 3.12)
 
 project(qrcode)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g -fprofile-arcs -ftest-coverage")
-
 include_directories(${CMAKE_SOURCE_DIR})
 
-add_executable(${PROJECT_NAME}
+add_executable(qrcode
 	main.cpp
+	ExtFiniteField256.cpp
 )
 
 aux_source_directory(test TEST_SRC_LIST)
-add_executable(unittest ${TEST_SRC_LIST})
+add_executable(unittest
+	${TEST_SRC_LIST}
+	ExtFiniteField256.cpp
+)
+
 target_link_libraries(unittest gtest pthread)
+
+target_compile_options(unittest PUBLIC -O0 -g --coverage)
+target_compile_options(qrcode PUBLIC -O2)
+target_link_options(unittest PUBLIC --coverage)
 
 add_custom_target(lcov
 	COMMAND lcov --no-external --directory ${CMAKE_BINARY_DIR} --directory ${CMAKE_SOURCE_DIR} --capture --output-file capture.info

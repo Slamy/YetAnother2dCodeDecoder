@@ -5,6 +5,7 @@
  *      Author: andre
  */
 
+#include "ExtFiniteField256.h"
 #include "FiniteField.h"
 #include "gtest/gtest.h"
 
@@ -17,6 +18,8 @@ int main(int argc, char** argv)
 
 	FiniteField19::buildReciprocal();
 	FiniteField19::findPrimitiveElement();
+
+	ExtFiniteField256::buildReciprocal();
 
 	return RUN_ALL_TESTS();
 }

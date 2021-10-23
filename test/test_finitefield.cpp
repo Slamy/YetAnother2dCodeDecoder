@@ -5,6 +5,7 @@
  *      Author: andre
  */
 
+#include "ExtFiniteField256.h"
 #include "FiniteField.h"
 #include "gtest/gtest.h"
 
@@ -40,29 +41,29 @@ TEST(FiniteFieldTest, Pow)
 	ASSERT_EQ(primElem.pow(3), primElem * primElem * primElem);
 }
 
-TEST(FiniteFieldTest, MathRules)
+template <class FF> void CheckMathRules(int fieldsize)
 {
-	FiniteField19 one(1);
-	FiniteField19 zero(0);
+	FF one(1);
+	FF zero(0);
 
-	for (int i = 0; i < 19; i++)
+	for (int i = 0; i < fieldsize; i++)
 	{
-		FiniteField19 a(i);
+		FF a(i);
 
 		// ensure existence of unary operator- which is sadly optional but important
 		ASSERT_EQ(zero - a, -a);
 
-		for (int j = 0; j < 19; j++)
+		for (int j = 0; j < fieldsize; j++)
 		{
-			FiniteField19 b(j);
+			FF b(j);
 
 			// Commutativity
 			ASSERT_EQ(a * b, b * a);
 			ASSERT_EQ(a + b, b + a);
 
-			for (int k = 0; k < 19; k++)
+			for (int k = 0; k < fieldsize; k++)
 			{
-				FiniteField19 c(k);
+				FF c(k);
 				ASSERT_EQ(a * c + b * c, (b + a) * c); // Distributivity
 			}
 		}
@@ -73,4 +74,11 @@ TEST(FiniteFieldTest, MathRules)
 			ASSERT_EQ(a / a, one);
 		}
 	}
+}
+
+TEST(FiniteFieldTest, MathRules)
+{
+	CheckMathRules<FiniteField19>(19);
+	CheckMathRules<FiniteField7>(7);
+	CheckMathRules<ExtFiniteField256>(256);
 }

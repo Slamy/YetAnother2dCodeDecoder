@@ -49,21 +49,8 @@ template <int prime> class FiniteField
 
 	static FiniteField getPrimitiveElementPow(int p)
 	{
-		int pabs = labs(p);
-
-		if (pabs == 0)
-		{
-			return FiniteField(multiplication_neutral);
-		}
-
 		FiniteField val(primitiveElement);
-		pabs--;
-		while (pabs)
-		{
-			val *= primitiveElement;
-			pabs--;
-		}
-		return (p > 0) ? val : FiniteField(reciprocal.at(val.num));
+		return val.pow(p);
 	}
 
 	static void findPrimitiveElement()
