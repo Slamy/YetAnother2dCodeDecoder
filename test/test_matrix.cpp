@@ -5,15 +5,19 @@
  *      Author: andre
  */
 
+#include "FiniteField.h"
 #include "Matrix.h"
 #include "gtest/gtest.h"
-#include "FiniteField.h"
 
 TEST(MatrixTest, GaussJordanElimination)
 {
 	// Example with floats
 	{
-		Matrix<float> polynoms({{1, 2, -4}, {7, 6, -2}, {0, -3, -5}});
+		Matrix<float> polynoms({
+			{1, 2, -4},
+			{7, 6, -2},
+			{0, -3, -5},
+		});
 		Matrix<float> polynoms_gje(polynoms);
 		polynoms_gje.print();
 		std::vector<float> f_x({2, -5, -8});
@@ -41,7 +45,11 @@ TEST(MatrixTest, GaussJordanElimination)
 
 	// Example as before with altered row order
 	{
-		Matrix<float> polynoms({{0, -3, -5}, {1, 2, -4}, {7, 6, -2}});
+		Matrix<float> polynoms({
+			{0, -3, -5},
+			{1, 2, -4},
+			{7, 6, -2},
+		});
 		Matrix<float> polynoms_gje(polynoms);
 		polynoms_gje.print();
 		std::vector<float> f_x({-8, 2, -5});
@@ -69,7 +77,11 @@ TEST(MatrixTest, GaussJordanElimination)
 
 	// Example with FiniteField7
 	{
-		Matrix<FiniteField7> polynoms({{1, 2, 4}, {3, 6, 2}, {0, 3, 5}});
+		Matrix<FiniteField7> polynoms({
+			{1, 2, 4},
+			{3, 6, 2},
+			{0, 3, 5},
+		});
 		Matrix<FiniteField7> polynoms_gje(polynoms);
 		polynoms_gje.print();
 		std::vector<FiniteField7> f_x({2, 5, 4});

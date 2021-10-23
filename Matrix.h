@@ -29,6 +29,20 @@ template <class T> class Matrix
 
 	Matrix() = default;
 
+	Matrix(int rows, int cols)
+	{
+		a.clear();
+		for (int r = 0; r < rows; r++)
+		{
+			a.emplace_back(std::vector<T>(cols));
+		}
+	}
+
+	T& at(int row, int col)
+	{
+		return a.at(row).at(col);
+	}
+
 	Matrix(std::vector<std::vector<T>> in)
 	{
 		a = in;
@@ -91,6 +105,7 @@ template <class T> class Matrix
 			std::cout << std::endl;
 		}
 	}
+
 	/**
 	 * Stolen from https://www.tutorialspoint.com/cplusplus-program-to-implement-gauss-jordan-elimination
 	 *
@@ -100,22 +115,23 @@ template <class T> class Matrix
 	 */
 	std::vector<T> gauss_jordan_elim()
 	{
-		int n = a.size();
-		std::vector<T> x(n);
+		int leftCols = getNumberOfCols() - 1;
+		int rows	 = getNumberOfRows();
+		std::vector<T> coefficients(leftCols);
 		int row, pivot_row, k; // declare variables and matrixes as
 		T b;
 		int col;
 
-		std::vector<bool> row_used_for_pivot(n);
-		std::vector<int> pivot_pos(n);
+		std::vector<bool> row_used_for_pivot(rows);
+		std::vector<int> pivot_pos(leftCols);
 
 		// iterate through the colums
-		for (col = 0; col < n; col++)
+		for (col = 0; col < leftCols; col++)
 		{
 			// printf("Do column %d!\n", col);
 			// find a pivot
 			pivot_row = -1;
-			for (row = 0; row < n; row++)
+			for (row = 0; row < rows; row++)
 			{
 				if (a.at(row).at(col) != 0.0f && row_used_for_pivot.at(row) == false)
 				{
@@ -126,10 +142,16 @@ template <class T> class Matrix
 					break;
 				}
 			}
+			if (pivot_row < 0)
+			{
+				// std::cout << "GJA failed to find a pivot!\n";
+				// print();
+				return std::vector<T>();
+			}
 			assert(pivot_row >= 0);
 
 			// iterate through the other rows of this column
-			for (row = 0; row < n; row++)
+			for (row = 0; row < rows; row++)
 			{
 				// only affect the other rows
 				if (row != pivot_row)
@@ -140,7 +162,7 @@ template <class T> class Matrix
 					b = a.at(row).at(col) / a.at(pivot_row).at(col);
 
 					// apply to all columns
-					for (k = 0; k <= n; k++)
+					for (k = 0; k <= leftCols; k++)
 					{
 						a.at(row).at(k) = a.at(row).at(k) - b * a.at(pivot_row).at(k);
 					}
@@ -149,15 +171,15 @@ template <class T> class Matrix
 				}
 			}
 		}
-		std::cout << "\nThe solution is:\n";
-		for (col = 0; col < n; col++)
+		// std::cout << "\nThe solution is:\n";
+		for (col = 0; col < leftCols; col++)
 		{
-			int row	  = pivot_pos.at(col);
-			x.at(col) = a.at(row).at(n) / a.at(row).at(col);
-			std::cout << "x" << row << "=" << x.at(row) << " ";
+			int row				 = pivot_pos.at(col);
+			coefficients.at(col) = a.at(row).at(leftCols) / a.at(row).at(col);
+			// std::cout << "x" << row << "=" << coefficients.at(row) << " ";
 		}
-		std::cout << std::endl;
-		return x;
+		// std::cout << std::endl;
+		return coefficients;
 	}
 };
 

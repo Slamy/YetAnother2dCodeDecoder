@@ -15,5 +15,8 @@ int main(int argc, char** argv)
 	FiniteField7::buildReciprocal();
 	FiniteField7::findPrimitiveElement();
 
+	FiniteField19::buildReciprocal();
+	FiniteField19::findPrimitiveElement();
+
 	return RUN_ALL_TESTS();
 }

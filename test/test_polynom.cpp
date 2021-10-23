@@ -27,7 +27,7 @@ TEST(PolynomTest, Compare)
 TEST(PolynomTest, AsString)
 {
 	Polynom<int> in({-1, -2, -3, -4, -5});
-	ASSERT_EQ(in.getOrder(), 4);
+	ASSERT_EQ(in.getDegree(), 4);
 	std::cout << in.asString() << std::endl;
 	ASSERT_STREQ(in.asString().c_str(), "-x^4 + -2x^3 + -3x^2 + -4x + -5");
 }
@@ -175,4 +175,3 @@ TEST(PolynomTest, Adding)
 	ASSERT_EQ(result, expected);
 	std::cout << result.asString() << std::endl;
 }
-

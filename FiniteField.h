@@ -28,6 +28,44 @@ template <int prime> class FiniteField
 		return primitiveElement;
 	}
 
+	FiniteField pow(int p)
+	{
+		int pabs = labs(p);
+
+		if (pabs == 0)
+		{
+			return FiniteField(multiplication_neutral);
+		}
+
+		FiniteField val(num);
+		pabs--;
+		while (pabs)
+		{
+			val *= *this;
+			pabs--;
+		}
+		return (p > 0) ? val : FiniteField(reciprocal.at(val.num));
+	}
+
+	static FiniteField getPrimitiveElementPow(int p)
+	{
+		int pabs = labs(p);
+
+		if (pabs == 0)
+		{
+			return FiniteField(multiplication_neutral);
+		}
+
+		FiniteField val(primitiveElement);
+		pabs--;
+		while (pabs)
+		{
+			val *= primitiveElement;
+			pabs--;
+		}
+		return (p > 0) ? val : FiniteField(reciprocal.at(val.num));
+	}
+
 	static void findPrimitiveElement()
 	{
 		bool primitiveElementFound{false};
@@ -40,7 +78,7 @@ template <int prime> class FiniteField
 			// printf("Try %d : ", possible_primitive);
 			for (int i = 0; i < prime; i++)
 			{
-				// 	printf("%d ", current);
+				// printf("%d ", current);
 				if (found.at(current) == false)
 					elementsfound++;
 				found.at(current) = true;
@@ -48,13 +86,21 @@ template <int prime> class FiniteField
 			}
 			if (elementsfound == prime - 1)
 			{
-				// printf("Yes!");
-				primitiveElement	  = FiniteField(possible_primitive);
+				// printf("Primitive Element %d\n", possible_primitive);
+				primitiveElement = FiniteField(possible_primitive);
+
+				assert(getPrimitiveElementPow(prime) == primitiveElement);
+				assert(getPrimitiveElementPow(prime - 1) == 1);
+
 				primitiveElementFound = true;
+				break;
 			}
 			// printf("\n");
 		}
 
+		// exit(1);
+		// primitiveElement = 15;
+		// exit(1);
 		assert(primitiveElementFound);
 	}
 
@@ -111,6 +157,11 @@ template <int prime> class FiniteField
 		return lhs.num > rhs.num;
 	}
 
+	FiniteField operator-() const
+	{
+		return -num;
+	}
+
 	friend FiniteField operator+(FiniteField lhs, const FiniteField& rhs)
 	{
 		assert(lhs.num < prime);
@@ -128,6 +179,17 @@ template <int prime> class FiniteField
 		num = (num + rhs.num) % prime;
 
 		return *this; // return the result by reference
+	}
+
+	FiniteField& operator*=(const FiniteField& rhs)
+	{
+		assert(num < prime);
+		assert(rhs.num < prime);
+
+		num = (num * rhs.num) % prime;
+
+		assert(num < prime);
+		return *this;
 	}
 
 	friend FiniteField operator-(FiniteField lhs, const FiniteField& rhs)
@@ -160,6 +222,7 @@ template <int prime> class FiniteField
 
 	friend FiniteField operator/(FiniteField lhs, const FiniteField& rhs)
 	{
+		assert(rhs.num != 0);
 		lhs.num = (lhs.num * reciprocal[rhs.num]) % prime;
 		assert(lhs.num < prime);
 		return lhs; // return the result by value (uses move constructor)
@@ -169,6 +232,7 @@ template <int prime> class FiniteField
 template <int prime> std::array<int, prime> FiniteField<prime>::reciprocal;
 template <int prime> FiniteField<prime> FiniteField<prime>::primitiveElement{0};
 
-using FiniteField7 = FiniteField<7>;
+using FiniteField7	= FiniteField<7>;
+using FiniteField19 = FiniteField<19>;
 
 #endif /* FINITEFIELD_H_ */

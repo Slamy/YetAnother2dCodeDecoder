@@ -30,7 +30,19 @@ template <class NumberType> class Polynom
 	std::vector<NumberType> values;
 
   public:
-	int getOrder() const
+	int getSize()
+	{
+		return values.size();
+	}
+
+	void setCoefficient(int exponent, NumberType a)
+	{
+		if (values.size() < exponent + 1)
+			values.resize(exponent + 1);
+		values.at(exponent) = a;
+	}
+
+	int getDegree() const
 	{
 		int grade = 0;
 		for (int i = 0; i < values.size(); i++)
@@ -43,7 +55,7 @@ template <class NumberType> class Polynom
 
 	void optimize()
 	{
-		values.resize(getOrder() + 1);
+		values.resize(getDegree() + 1);
 	}
 
 	void setPolynom(std::initializer_list<NumberType> il)
@@ -78,8 +90,8 @@ template <class NumberType> class Polynom
 
 	friend bool operator==(const Polynom& lhs, const Polynom& rhs)
 	{
-		int lhsOrder = lhs.getOrder();
-		if (lhsOrder != rhs.getOrder())
+		int lhsOrder = lhs.getDegree();
+		if (lhsOrder != rhs.getDegree())
 			return false;
 
 		for (int i = 0; i <= lhsOrder; i++)
@@ -150,8 +162,8 @@ template <class NumberType> class Polynom
 	 */
 	friend std::pair<Polynom, Polynom> operator/(Polynom lhs, const Polynom& rhs)
 	{
-		int l_order	  = lhs.getOrder();
-		int r_order	  = rhs.getOrder();
+		int l_order	  = lhs.getDegree();
+		int r_order	  = rhs.getDegree();
 		auto dividend = lhs.values;
 		auto divisor  = rhs.values;
 
@@ -189,9 +201,10 @@ template <class NumberType> class Polynom
 		}
 		// dividend is now the remainer
 
+#if 0
 		std::cout << "Polynomdivision " << lhs.asString() << " : " << rhs.asString() << " = "
 				  << Polynom(result).asString() << " rest " << Polynom(dividend).asString() << std::endl;
-
+#endif
 		// verify result by reversing this with multiplication
 		assert(Polynom(result) * rhs + dividend == lhs);
 
@@ -203,7 +216,7 @@ template <class NumberType> class Polynom
 	 * @param x		as f(x)=...
 	 * @return		f(x)
 	 */
-	NumberType evaluate(NumberType x)
+	NumberType evaluate(NumberType x) const
 	{
 		NumberType result{0};
 
