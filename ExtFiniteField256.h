@@ -18,15 +18,36 @@
 class ExtFiniteField256
 {
   private:
+	/// irreducible polynomial used to reduce a number to the field space
 	static constexpr int irreducible_primitive_polynomial = 0x11d; // GF(2^8) for QR codes
+
+	/// Stored number
 	uint8_t num;
+
+	/// Neutral element for + and -
 	static constexpr int addition_neutral{0};
+
+	/// Neutral element for * and /
 	static constexpr int multiplication_neutral{1};
 
+	/**
+	 * Calculating a reciprocal of an element is cpu intensive. We calculate them once and
+	 * store them inside this look up table.
+	 */
 	static std::array<uint8_t, 256> reciprocal;
+
+	/**
+	 * The primitive element alpha of this finite field.
+	 * Every element of the finite field can be reached using a power of alpha.
+	 */
 	static ExtFiniteField256 primitiveElement;
 
   public:
+	/**
+	 * Calculates a power of this FiniteField
+	 * @param p		exponent
+	 * @return		result of calculation
+	 */
 	ExtFiniteField256 pow(int p)
 	{
 		int pabs = labs(p);
@@ -46,12 +67,22 @@ class ExtFiniteField256
 		return (p > 0) ? val : ExtFiniteField256(reciprocal.at(val.num));
 	}
 
+	/**
+	 * Calculates a power of the primitive element alpha of this FiniteField
+	 * @param p		exponent
+	 * @return		result of calculation
+	 */
 	static ExtFiniteField256 getPrimitiveElementPow(int p)
 	{
 		ExtFiniteField256 val(primitiveElement);
 		return val.pow(p);
 	}
 
+	/**
+	 * Brute force method of finding one possible primitive element alpha.
+	 * Must be called at the start of the program before usage of \ref primitiveElement
+	 * by various functions.
+	 */
 	static void findPrimitiveElement()
 	{
 		bool primitiveElementFound{false};
@@ -84,12 +115,13 @@ class ExtFiniteField256
 			// printf("\n");
 		}
 
-		// exit(1);
-		// primitiveElement = 15;
-		// exit(1);
 		assert(primitiveElementFound);
 	}
 
+	/**
+	 * Brute force method to build a reciprocal lookup table. Must be called at the start of the program
+	 * to make division and negative exponents with \ref pow possible.
+	 */
 	static void buildReciprocal()
 	{
 		for (int i = 0; i < 256; i++)
@@ -121,34 +153,67 @@ class ExtFiniteField256
 		num = addition_neutral;
 	}
 
+	/**
+	 * Construct from a byte
+	 * @param val	start value
+	 */
 	ExtFiniteField256(uint8_t val)
 	{
 		num = val;
 	}
 
+	/**
+	 * Add two terms together which means XORing them.
+	 * @param lhs	Left term
+	 * @param rhs	Right term
+	 * @return		Sum
+	 */
 	friend ExtFiniteField256 operator+(ExtFiniteField256 lhs, const ExtFiniteField256& rhs)
 	{
 		lhs.num ^= rhs.num;
 		return lhs; // return the result by value (uses move constructor)
 	}
 
+	/**
+	 * Perform subtraction which is the same as addition for this finite field
+	 * @param lhs	minuend
+	 * @param rhs	subtrahend
+	 * @return		difference
+	 */
 	friend ExtFiniteField256 operator-(ExtFiniteField256 lhs, const ExtFiniteField256& rhs)
 	{
 		lhs.num ^= rhs.num;
 		return lhs; // return the result by value (uses move constructor)
 	}
 
+	/**
+	 * Overloaded unary negative operator. As adding and subtracting is the same, the negative is the identity.
+	 * @return	negative of current value which is the same
+	 */
 	ExtFiniteField256 operator-() const
 	{
 		return *this;
 	}
 
+	/**
+	 * Increment by a term which is internally just XOR.
+	 * @param rhs	term
+	 * @return		reference to the result.
+	 */
 	ExtFiniteField256& operator+=(const ExtFiniteField256& rhs)
 	{
 		num ^= rhs.num;
 		return *this; // return the result by reference
 	}
 
+	/**
+	 * Perform polynomial multiplication with XORing the end result.
+	 * Every bit is assumed to be a coefficient of either 0 or 1.
+	 *
+	 * @param x	factor
+	 * @param y	factor
+	 * @return	polynomial product
+	 */
 	static int xorMult(int x, int y)
 	{
 		int z = 0;
@@ -162,6 +227,13 @@ class ExtFiniteField256
 		return z;
 	}
 
+	/**
+	 * Provide index of highest set bit in value
+	 * Example 0b -> 1 or 0b100 -> 3
+	 *
+	 * @param n	Value
+	 * @return	index starting with one
+	 */
 	static int bit_length(int n)
 	{
 		int bits = 0;
@@ -173,6 +245,10 @@ class ExtFiniteField256
 		return bits;
 	}
 
+	/**
+	 * Print a 32 bit value as a binary representation
+	 * @param x	value
+	 */
 	static void bin_prnt_byte(int x)
 	{
 		int n;
@@ -191,6 +267,13 @@ class ExtFiniteField256
 		printf("\n");
 	}
 
+	/**
+	 * Perform binary polynomial division and provide only the remainder.
+	 *
+	 * @param dividend	Dividend
+	 * @param divisor	Divisor
+	 * @return			Remainder
+	 */
 	static int xorDiv(int dividend, int divisor)
 	{
 		int dl1 = bit_length(dividend);
@@ -216,6 +299,12 @@ class ExtFiniteField256
 		return dividend;
 	}
 
+	/**
+	 * Perform multiplication
+	 * @param lhs	left factor
+	 * @param rhs	right factor
+	 * @return		product
+	 */
 	friend ExtFiniteField256 operator*(ExtFiniteField256 lhs, const ExtFiniteField256& rhs)
 	{
 		int result = xorMult(lhs.num, rhs.num);
@@ -223,6 +312,11 @@ class ExtFiniteField256
 		return result; // return the result by value (uses move constructor)
 	}
 
+	/**
+	 * Perform multiplication with a factor and store the result
+	 * @param rhs	factor
+	 * @return		reference to the result.
+	 */
 	ExtFiniteField256& operator*=(const ExtFiniteField256& rhs)
 	{
 		int result = xorMult(num, rhs.num);
@@ -233,6 +327,12 @@ class ExtFiniteField256
 		return *this;
 	}
 
+	/**
+	 * Perform division
+	 * @param lhs	dividend
+	 * @param rhs	divisor
+	 * @return		Result which never has a remainder
+	 */
 	friend ExtFiniteField256 operator/(ExtFiniteField256 lhs, const ExtFiniteField256& rhs)
 	{
 		int result = xorMult(lhs.num, reciprocal.at(rhs.num));
@@ -240,6 +340,9 @@ class ExtFiniteField256
 		return result; // return the result by value (uses move constructor)
 	}
 
+	/**
+	 * Provide access to the internal value for printing and other means.
+	 */
 	operator int() const
 	{
 		return num;

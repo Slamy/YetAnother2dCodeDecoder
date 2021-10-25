@@ -31,3 +31,9 @@ add_custom_target(applyCodeStyle
 	COMMAND find -iname '*.h' -o -iname '*.cpp' -o -iname '*.c' | xargs clang-format -i
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
+
+add_custom_target(doxygen
+  COMMAND doxygen
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+

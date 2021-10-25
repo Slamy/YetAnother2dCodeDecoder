@@ -12,16 +12,30 @@
 #include <iostream>
 #include <vector>
 
+/**
+ * Utility class which provides matrix math operations
+ * @tparam T	Data type to use for the elements
+ */
 template <class T> class Matrix
 {
+  private:
+	/// Actual matrix data
 	std::vector<std::vector<T>> a;
 
   public:
+	/**
+	 * Provides size of matrix
+	 * @return	Number of Rows
+	 */
 	int getNumberOfRows()
 	{
 		return a.size();
 	}
 
+	/**
+	 * Provides size of matrix
+	 * @return	Number of Columns
+	 */
 	int getNumberOfCols()
 	{
 		return a.at(0).size();
@@ -29,6 +43,11 @@ template <class T> class Matrix
 
 	Matrix() = default;
 
+	/**
+	 * Constructs an empty matrix with every element being 0
+	 * @param rows	Rows
+	 * @param cols	Columns
+	 */
 	Matrix(int rows, int cols)
 	{
 		a.clear();
@@ -38,16 +57,30 @@ template <class T> class Matrix
 		}
 	}
 
+	/**
+	 * Provides access to a single element for reading and writing
+	 * @param row	First index is 0
+	 * @param col	First index is 0
+	 * @return		Reference to element
+	 */
 	T& at(int row, int col)
 	{
 		return a.at(row).at(col);
 	}
 
+	/**
+	 * Construct a matrix from vectors
+	 * @param in	Vector of Row Vectors
+	 */
 	Matrix(std::vector<std::vector<T>> in)
 	{
 		a = in;
 	}
 
+	/**
+	 * Construct a matrix from constant values
+	 * @param in	List of rows
+	 */
 	Matrix(std::initializer_list<std::initializer_list<T>> in)
 	{
 		a.clear();
@@ -64,6 +97,12 @@ template <class T> class Matrix
 		}
 	}
 
+	/**
+	 * Concatenate a vector to the matrix on the right side.
+	 * Useful for \ref gauss_jordan_elim
+	 *
+	 * @param toAppend	Vector to append on the right side.
+	 */
 	void appendRight(std::vector<T> toAppend)
 	{
 		assert(getNumberOfRows() == toAppend.size());
@@ -74,6 +113,13 @@ template <class T> class Matrix
 		}
 	}
 
+	/**
+	 * Perform matrix multiplication with a vector
+	 *
+	 * @param lhs	matrix
+	 * @param rhs	vector to multiply the matrix with
+	 * @return		resulting vector
+	 */
 	friend std::vector<T> operator*(Matrix<T> lhs, const std::vector<T>& rhs)
 	{
 		assert(lhs.getNumberOfRows() == rhs.size());
@@ -94,6 +140,9 @@ template <class T> class Matrix
 		return result;
 	}
 
+	/**
+	 * Primitive debugging print of the matrix
+	 */
 	void print()
 	{
 		for (auto& row : a)
@@ -107,18 +156,20 @@ template <class T> class Matrix
 	}
 
 	/**
-	 * Stolen from https://www.tutorialspoint.com/cplusplus-program-to-implement-gauss-jordan-elimination
+	 * Performs a gauss jordan elimination on this matrix.
+	 * The outer right column is supposed to be the result of the equations.
 	 *
-	 * @tparam T
-	 * @param a
-	 * @return
+	 * Inspired by https://www.tutorialspoint.com/cplusplus-program-to-implement-gauss-jordan-elimination
+	 * But this implementation also adds support for pivot finding.
+	 *
+	 * @return	Vector of coefficients if successful, empty vector of not
 	 */
 	std::vector<T> gauss_jordan_elim()
 	{
 		int leftCols = getNumberOfCols() - 1;
 		int rows	 = getNumberOfRows();
 		std::vector<T> coefficients(leftCols);
-		int row, pivot_row, k; // declare variables and matrixes as
+		int row, pivot_row, k;
 		T b;
 		int col;
 

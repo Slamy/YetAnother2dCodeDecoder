@@ -64,7 +64,7 @@ void reedSolomonTest()
 													 0, 0, 0, 0, 0, //
 													 0, 0});
 
-		assert(error.getSize() <= rs.n);
+		assert(error.getDegree() <= rs.n);
 
 		Polynom<FiniteField<prime>> recv_message = sent_message + error;
 
@@ -105,7 +105,7 @@ void reedSolomonTest2()
 													0, 0, 0, 4, 0, //
 													0, 0});
 
-		assert(error.getSize() <= rs.n);
+		assert(error.getDegree() <= rs.n);
 
 		Polynom<ExtFiniteField256> recv_message = sent_message + error;
 

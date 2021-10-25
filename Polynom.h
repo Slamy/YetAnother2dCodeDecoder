@@ -18,11 +18,17 @@
 #include <utility>
 #include <vector>
 
+/**
+ * Math utility class for Polynomials like
+ * f(x) = x^2 + 2x + 1
+ *
+ * @tparam NumberType	data type
+ */
 template <class NumberType> class Polynom
 {
   private:
 	/**
-	 *  the index is the grade
+	 *  the index is the degree
 	 *  values[0] = v -> v
 	 *  values[1] = v -> v*x
 	 *  values[2] = v -> v*x^2
@@ -30,18 +36,22 @@ template <class NumberType> class Polynom
 	std::vector<NumberType> values;
 
   public:
-	int getSize()
+	/**
+	 * Allows setting a single coefficient.
+	 * @param degree	degree of x to set
+	 * @param a			value of coefficient
+	 */
+	void setCoefficient(int degree, NumberType a)
 	{
-		return values.size();
+		if (values.size() < degree + 1)
+			values.resize(degree + 1);
+		values.at(degree) = a;
 	}
 
-	void setCoefficient(int exponent, NumberType a)
-	{
-		if (values.size() < exponent + 1)
-			values.resize(exponent + 1);
-		values.at(exponent) = a;
-	}
-
+	/**
+	 * Provides degree of polynomial
+	 * @return	degree of polynomial
+	 */
 	int getDegree() const
 	{
 		int grade = 0;
@@ -53,11 +63,21 @@ template <class NumberType> class Polynom
 		return grade;
 	}
 
+	/**
+	 * Reduces size to minimum.
+	 */
 	void optimize()
 	{
 		values.resize(getDegree() + 1);
 	}
 
+	/**
+	 * Sets the polynomial from an initializer list
+	 * Example:
+	 * {2,1,3} -> f(x)= 2*x^2 + x + 3
+	 *
+	 * @param il	Coefficients
+	 */
 	void setPolynom(std::initializer_list<NumberType> il)
 	{
 		values.clear();
@@ -72,22 +92,48 @@ template <class NumberType> class Polynom
 
 	Polynom() = default;
 
+	/**
+	 * Constructs the polynomial from an initializer list
+	 * Example:
+	 * {2,1,3} -> f(x)= 2*x^2 + x + 3
+	 *
+	 * @param il	Coefficients
+	 */
 	Polynom(std::initializer_list<NumberType> il)
 	{
 		setPolynom(il);
 	}
 
+	/**
+	 * Constructs the polynomial from a vector
+	 * Example:
+	 * {2,1,3} -> f(x)= 2*x^2 + x + 3
+	 *
+	 * @param v	Coefficients
+	 */
 	Polynom(std::vector<NumberType> v)
 	{
 		values = v;
 		optimize();
 	}
 
+	/**
+	 * Compares two polynomials
+	 * @param lhs	left hand side
+	 * @param rhs	right hand side
+	 * @return		true if both polynomials are not equal
+	 */
 	friend bool operator!=(const Polynom& lhs, const Polynom& rhs)
 	{
 		return !(lhs == rhs);
 	}
 
+	/**
+	 * Compares two polynomials
+	 * @param lhs	left hand side
+	 * @param rhs	right hand side
+	 * @return		true if both polynomials are equal
+	 */
 	friend bool operator==(const Polynom& lhs, const Polynom& rhs)
 	{
 		int lhsOrder = lhs.getDegree();
@@ -103,6 +149,12 @@ template <class NumberType> class Polynom
 		return true;
 	}
 
+	/**
+	 * Perform subtraction
+	 * @param lhs	minuend
+	 * @param rhs	subtrahend
+	 * @return		difference
+	 */
 	friend Polynom operator-(Polynom lhs, const Polynom& rhs)
 	{
 
@@ -115,6 +167,12 @@ template <class NumberType> class Polynom
 		return lhs;
 	}
 
+	/**
+	 * Add two terms together
+	 * @param lhs	Left term
+	 * @param rhs	Right term
+	 * @return		Sum
+	 */
 	friend Polynom operator+(Polynom lhs, const Polynom& rhs)
 	{
 
@@ -127,6 +185,12 @@ template <class NumberType> class Polynom
 		return lhs;
 	}
 
+	/**
+	 * Perform polynomial multiplication
+	 * @param lhs	factor
+	 * @param rhs	factor
+	 * @return		product
+	 */
 	friend Polynom operator*(Polynom lhs, const Polynom& rhs)
 	{
 		std::vector<NumberType> result;
@@ -144,9 +208,9 @@ template <class NumberType> class Polynom
 	}
 
 	/**
-	 * Perform polynom division for signed integers.
+	 * Perform polynomial division
 	 *
-	 * Example: {3,2,1} / (1,1)
+	 * Example with signed integers: {3,2,1} / (1,1)
 	 *   3x^2 + 2x + 1 : x + 1 = 3x - 1
 	 * -(3x^2 + 3x)
 	 * ____________
@@ -229,6 +293,10 @@ template <class NumberType> class Polynom
 		return result;
 	}
 
+	/**
+	 * Formats the polynomial as a string
+	 * @return	text representation
+	 */
 	std::string asString() const
 	{
 		std::stringstream ss;

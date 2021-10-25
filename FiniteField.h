@@ -12,22 +12,50 @@
 #include <cassert>
 #include <iostream>
 
+/**
+ * Math utility class for numbers in finite fields GF(q) where q is a prime number
+ *
+ * @tparam prime	Must be a prime number
+ */
 template <int prime> class FiniteField
 {
   private:
+	/// Stored number
 	int num;
+
+	/// Neutral element for + and -
 	static constexpr int addition_neutral{0};
+
+	/// Neutral element for * and /
 	static constexpr int multiplication_neutral{1};
 
+	/**
+	 * Calculating a reciprocal of an element is cpu intensive. We calculate them once and
+	 * store them inside this look up table.
+	 */
 	static std::array<int, prime> reciprocal;
+
+	/**
+	 * The primitive element alpha of this finite field.
+	 * Every element of the finite field can be reached using a power of alpha.
+	 */
 	static FiniteField primitiveElement;
 
   public:
+	/**
+	 * Provides access to the primitive element alpha.
+	 * @return	alpha
+	 */
 	static FiniteField getPrimitiveElement()
 	{
 		return primitiveElement;
 	}
 
+	/**
+	 * Calculates a power of this FiniteField
+	 * @param p		exponent
+	 * @return		result of calculation
+	 */
 	FiniteField pow(int p)
 	{
 		int pabs = labs(p);
@@ -47,12 +75,22 @@ template <int prime> class FiniteField
 		return (p > 0) ? val : FiniteField(reciprocal.at(val.num));
 	}
 
+	/**
+	 * Calculates a power of the primitive element alpha of this FiniteField
+	 * @param p		exponent
+	 * @return		result of calculation
+	 */
 	static FiniteField getPrimitiveElementPow(int p)
 	{
 		FiniteField val(primitiveElement);
 		return val.pow(p);
 	}
 
+	/**
+	 * Brute force method of finding one possible primitive element alpha.
+	 * Must be called at the start of the program before usage of \ref primitiveElement
+	 * by various functions.
+	 */
 	static void findPrimitiveElement()
 	{
 		bool primitiveElementFound{false};
@@ -85,12 +123,13 @@ template <int prime> class FiniteField
 			// printf("\n");
 		}
 
-		// exit(1);
-		// primitiveElement = 15;
-		// exit(1);
 		assert(primitiveElementFound);
 	}
 
+	/**
+	 * Brute force method to build a reciprocal lookup table. Must be called at the start of the program
+	 * to make division and negative exponents with \ref pow possible.
+	 */
 	static void buildReciprocal()
 	{
 		for (int i = 0; i < prime; i++)
@@ -122,6 +161,11 @@ template <int prime> class FiniteField
 	{
 		num = addition_neutral;
 	}
+
+	/**
+	 * Construct from an integer
+	 * @param val	start value
+	 */
 	FiniteField(int val)
 	{
 		num = val;
@@ -134,21 +178,40 @@ template <int prime> class FiniteField
 		assert(num < prime);
 	}
 
+	/**
+	 * Provide access to the internal value for printing and other means.
+	 */
 	operator int() const
 	{
 		return num;
 	}
 
+	/**
+	 * Overloaded compare function
+	 * @param lhs	left hand side
+	 * @param rhs	right hand side
+	 * @return		true if lhs is greater
+	 */
 	friend bool operator>(const FiniteField& lhs, const FiniteField& rhs)
 	{
 		return lhs.num > rhs.num;
 	}
 
+	/**
+	 * Overloaded unary negative operator
+	 * @return	negative of current value
+	 */
 	FiniteField operator-() const
 	{
 		return -num;
 	}
 
+	/**
+	 * Add two terms together
+	 * @param lhs	Left term
+	 * @param rhs	Right term
+	 * @return		Sum
+	 */
 	friend FiniteField operator+(FiniteField lhs, const FiniteField& rhs)
 	{
 		assert(lhs.num < prime);
@@ -160,6 +223,11 @@ template <int prime> class FiniteField
 		return lhs; // return the result by value (uses move constructor)
 	}
 
+	/**
+	 * Increment by a term
+	 * @param rhs	term
+	 * @return		reference to the result.
+	 */
 	FiniteField& operator+=(const FiniteField& rhs)
 	{
 		assert(rhs.num < prime);
@@ -168,6 +236,11 @@ template <int prime> class FiniteField
 		return *this; // return the result by reference
 	}
 
+	/**
+	 * Perform multiplication with a factor and store the result
+	 * @param rhs	factor
+	 * @return		reference to the result.
+	 */
 	FiniteField& operator*=(const FiniteField& rhs)
 	{
 		assert(num < prime);
@@ -179,6 +252,12 @@ template <int prime> class FiniteField
 		return *this;
 	}
 
+	/**
+	 * Perform subtraction
+	 * @param lhs	minuend
+	 * @param rhs	subtrahend
+	 * @return		difference
+	 */
 	friend FiniteField operator-(FiniteField lhs, const FiniteField& rhs)
 	{
 		assert(lhs.num < prime);
@@ -196,6 +275,12 @@ template <int prime> class FiniteField
 		return lhs; // return the result by value (uses move constructor)
 	}
 
+	/**
+	 * Perform multiplication
+	 * @param lhs	left factor
+	 * @param rhs	right factor
+	 * @return		product
+	 */
 	friend FiniteField operator*(FiniteField lhs, const FiniteField& rhs)
 	{
 		assert(lhs.num < prime);
@@ -207,6 +292,12 @@ template <int prime> class FiniteField
 		return lhs; // return the result by value (uses move constructor)
 	}
 
+	/**
+	 * Perform division
+	 * @param lhs	dividend
+	 * @param rhs	divisor
+	 * @return		Result which never has a remainder
+	 */
 	friend FiniteField operator/(FiniteField lhs, const FiniteField& rhs)
 	{
 		assert(rhs.num != 0);
