@@ -227,9 +227,9 @@ template <class T> class Matrix
 		{
 			int row				 = pivot_pos.at(col);
 			coefficients.at(col) = a.at(row).at(leftCols) / a.at(row).at(col);
-			// std::cout << "x" << row << "=" << coefficients.at(row) << " ";
+			std::cout << "x" << row << "=" << coefficients.at(row) << " ";
 		}
-		// std::cout << std::endl;
+		std::cout << std::endl;
 		return coefficients;
 	}
 };

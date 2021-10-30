@@ -37,3 +37,15 @@ add_custom_target(doxygen
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
+find_package( OpenCV REQUIRED )
+
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+
+add_executable(scanner
+	scanner.cpp
+)
+
+target_compile_options(scanner PUBLIC -O0 -g)
+
+target_link_libraries( scanner ${OpenCV_LIBS} )
+

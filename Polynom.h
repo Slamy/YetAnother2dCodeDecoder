@@ -157,7 +157,6 @@ template <class NumberType> class Polynom
 	 */
 	friend Polynom operator-(Polynom lhs, const Polynom& rhs)
 	{
-
 		int maxsize = std::max(lhs.values.size(), rhs.values.size());
 		lhs.values.resize(maxsize);
 		for (int j = 0; j < rhs.values.size(); j++)
@@ -175,7 +174,6 @@ template <class NumberType> class Polynom
 	 */
 	friend Polynom operator+(Polynom lhs, const Polynom& rhs)
 	{
-
 		int maxsize = std::max(lhs.values.size(), rhs.values.size());
 		lhs.values.resize(maxsize);
 		for (int j = 0; j < rhs.values.size(); j++)
