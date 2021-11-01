@@ -43,6 +43,7 @@ include_directories( ${OpenCV_INCLUDE_DIRS} )
 
 add_executable(scanner
 	scanner.cpp
+	ExtFiniteField256.cpp
 )
 
 target_compile_options(scanner PUBLIC -O0 -g)

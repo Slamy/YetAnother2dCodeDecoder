@@ -124,15 +124,48 @@ void reedSolomonTest2()
 	printf("Finished!\n");
 }
 
+void reedSolomonTest3()
+{
+	int n = 44;
+	int t = 10;
+	int k = n - t;
+	RS::ReedSolomon<ExtFiniteField256> rs(n, k);
+
+	auto recv_message = Polynom<ExtFiniteField256>({
+		65,	 118, 135, 71,	71, 7,	 51, 162, 242, 244, 23, 38,	 214, 150, 228, 134, 22,  230, 151, 54, 54,	 130,
+		230, 70,  80,  236, 17, 236, 17, 236, 17,  236, 17, 236, 56,  62,  186, 153, 194, 38,  202, 92, 253, 96,
+	});
+
+	try
+	{
+		auto syndromes = rs.calculateSyndromes(recv_message);
+		for (auto& s : syndromes.first)
+		{
+			std::cout << "Syndrome " << s << std::endl;
+		}
+
+		auto repaired_message = rs.decode(recv_message);
+	}
+	catch (const RS::MessageUncorrectable& e)
+	{
+		std::cout << e.what() << std::endl;
+		abort();
+	}
+
+	printf("Finished!\n");
+}
+
 int main()
 {
+
 	FiniteField<prime>::buildReciprocal();
 	FiniteField<prime>::findPrimitiveElement();
 
 	ExtFiniteField256::buildReciprocal();
 	ExtFiniteField256::findPrimitiveElement();
 
-	reedSolomonTest2();
+	reedSolomonTest3();
+#if 0
 	// return 0;
 	ExtFiniteField256 a(4);
 	ExtFiniteField256 b(3);
@@ -147,6 +180,7 @@ int main()
 	std::cout << (a * b) << std::endl;
 	std::cout << (a / b) << std::endl;
 	std::cout << ((a * b) / b) << std::endl;
+#endif
 
 	return 0;
 }

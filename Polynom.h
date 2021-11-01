@@ -36,6 +36,11 @@ template <class NumberType> class Polynom
 	std::vector<NumberType> values;
 
   public:
+	std::vector<NumberType> getRawData()
+	{
+		return values;
+	}
+
 	/**
 	 * Allows setting a single coefficient.
 	 * @param degree	degree of x to set

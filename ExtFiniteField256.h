@@ -103,7 +103,7 @@ class ExtFiniteField256
 			}
 			if (elementsfound == 256 - 1)
 			{
-				// printf("Primitive Element %d\n", possible_primitive);
+				printf("Primitive Element %d\n", possible_primitive);
 				primitiveElement = ExtFiniteField256(possible_primitive);
 
 				assert(getPrimitiveElementPow(256) == primitiveElement);
@@ -243,28 +243,6 @@ class ExtFiniteField256
 			bits++;
 		}
 		return bits;
-	}
-
-	/**
-	 * Print a 32 bit value as a binary representation
-	 * @param x	value
-	 */
-	static void bin_prnt_byte(int x)
-	{
-		int n;
-		for (n = 0; n < 32; n++)
-		{
-			if ((x & 0x80000000) != 0)
-			{
-				printf("1");
-			}
-			else
-			{
-				printf("0");
-			}
-			x = x << 1;
-		}
-		printf("\n");
 	}
 
 	/**
