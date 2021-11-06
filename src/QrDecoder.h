@@ -561,9 +561,9 @@ class QrDecoder
 		}
 		float angle01, angle02, angle12;
 
-		angle01 = glm::angle(finder2.at(0).out_to_in, finder2.at(1).out_to_in);
-		angle02 = glm::angle(finder2.at(0).out_to_in, finder2.at(2).out_to_in);
-		angle12 = glm::angle(finder2.at(1).out_to_in, finder2.at(2).out_to_in);
+		angle01 = glm::orientedAngle(finder2.at(0).out_to_in, finder2.at(1).out_to_in);
+		angle02 = glm::orientedAngle(finder2.at(0).out_to_in, finder2.at(2).out_to_in);
+		angle12 = glm::orientedAngle(finder2.at(1).out_to_in, finder2.at(2).out_to_in);
 
 		if (debugMode)
 		{
@@ -574,7 +574,7 @@ class QrDecoder
 		FinderPattern finder_bottomLeft;
 		FinderPattern finder_topRight;
 
-		if (angle01 > 3)
+		if (fabs(angle01) > 3)
 		{
 			finder_topLeft = finder2.at(2);
 			if (angle02 > 0)
@@ -588,7 +588,7 @@ class QrDecoder
 				finder_topRight	  = finder2.at(0);
 			}
 		}
-		else if (angle02 > 3)
+		else if (fabs(angle02) > 3)
 		{
 			finder_topLeft = finder2.at(1);
 			if (angle01 > 0)
@@ -602,10 +602,19 @@ class QrDecoder
 				finder_topRight	  = finder2.at(0);
 			}
 		}
-		else if (angle12 > 3)
+		else if (fabs(angle12) > 3)
 		{
 			finder_topLeft = finder2.at(0);
-			assert(0);
+			if (angle01 < 0)
+			{
+				finder_bottomLeft = finder2.at(1);
+				finder_topRight	  = finder2.at(2);
+			}
+			else
+			{
+				finder_bottomLeft = finder2.at(2);
+				finder_topRight	  = finder2.at(1);
+			}
 			// TODO must still be developed
 		}
 		else
@@ -613,11 +622,15 @@ class QrDecoder
 			assert(0);
 		}
 
+		printf("finder top left %d %d\n", finder_topLeft.outer.x, finder_topLeft.outer.y);
+		printf("finder top right %d %d\n", finder_topRight.outer.x, finder_topRight.outer.y);
+		printf("finder bottom left %d %d\n", finder_bottomLeft.outer.x, finder_bottomLeft.outer.y);
 		// cv::circle(image, finder2.at(1).outer, 10, red, 3);
 
 		finder_bottomLeft.calculateFinderLessEdgeAngle(finder_topLeft);
 		finder_topRight.calculateFinderLessEdgeAngle(finder_topLeft);
 
+#if 0
 		cv::circle(src_image_, finder_bottomLeft.outer, 10, blue, 3);
 		cv::circle(src_image_, finder_bottomLeft.outer + finder_bottomLeft.outer_to_finderless_edge, 10, green, 3);
 
@@ -626,6 +639,7 @@ class QrDecoder
 
 		cv::circle(src_image_, finder_topLeft.outer, 10, red, 3);
 		cv::circle(src_image_, finder_topLeft.inner, 10, green, 3);
+#endif
 
 		cv::Point solution;
 		cv::Point avg_solution(0, 0);
@@ -1613,6 +1627,16 @@ class QrDecoder
 
 		cv::warpPerspective(monochrome_image_normal, monochrome_image_warped, transform,
 							cv::Size(warped_size, warped_size));
+
+		if (debugModeVisual)
+		{
+			cv::imshow("src_image_as_grayscale", src_image_as_grayscale);
+			cv::imshow("grayscale_blurred", grayscale_blurred);
+			cv::imshow("monochrome_image_inverted", monochrome_image_inverted);
+			cv::imshow("src_image_", src_image_);
+
+			cv::waitKey(0);
+		}
 
 		float cellsizeAvg  = (cellsizeX + cellsizeY) / 2;
 		float sizeInCellsF = static_cast<float>(warped_size) / cellsizeAvg;

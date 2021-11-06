@@ -28,6 +28,9 @@ struct GroundTruth data[] = {
 	{"chrome_dino.png", "https://www.googlewatchblog.de/2020/07/google-chrome-so-hintergrundbild/", false}, //
 	{"wikipedia_perspective.png", "https://de.wikipedia.org", true},										//
 	{"wikipedia.png", "https://de.wikipedia.org", true},													//
+	{"wikipedia_rot90.png", "https://de.wikipedia.org", true},												//
+	{"wikipedia_rot180.png", "https://de.wikipedia.org", true},												//
+	{"wikipedia_rot270.png", "https://de.wikipedia.org", true},												//
 	{"numeric.png", "tel:555-555-5555", true},																//
 	{"numeric2.png", "tel:0043-7252-72720", true},															//
 	{"numeric3.png", "tel:00431789", true},																	//
