@@ -29,10 +29,11 @@ class QrCodeException : public std::exception
 		kFormatNotDetected
 	};
 
-	const char* whatStr[3] = {
+	const char* whatStr[4] = {
 		"File not readable",
 		"Unable to detect Finder Pattern",
 		"Qr Code Size / Version not supported",
+		"Format not detected",
 	};
 	const Cause cause_;
 
@@ -107,8 +108,8 @@ class QrDecoder
 		cells.clear();
 		debug_cells.clear();
 
-		goingUp	  = true;
-		changeRow = false;
+		going_up_	= true;
+		change_row_ = false;
 	}
 
 	const cv::Scalar green{0, 255, 0};
@@ -128,40 +129,46 @@ class QrDecoder
 	cv::Point average_center_pos;
 	std::vector<FinderPattern> finder2;
 
-	const int warped_size = 1000;
+	static constexpr int warped_size = 1000;
 	float cellsizeX, cellsizeY;
-	float halfCellSize;
+	float half_cell_size_;
 	cv::Mat transform;
 
 	std::vector<std::vector<bool>> cells;
 	std::vector<std::vector<char>> debug_cells;
 	char debug_cell_val = '_';
 
-	int sizeInCells;
+	int size_in_cells_;
 
 	cv::Mat monochrome_image_warped;
-	cv::Point analyzePosition;
+	cv::Point current_cell_position_;
 
 	const char* correctionLevelStr[4] = {"M", "L", "H", "Q"};
 
-	static constexpr int err_M = 0;
-	static constexpr int err_L = 1;
-	static constexpr int err_H = 2;
-	static constexpr int err_Q = 3;
+	static constexpr int kErrM = 0;
+	static constexpr int kErrL = 1;
+	static constexpr int kErrH = 2;
+	static constexpr int kErrQ = 3;
 
 	float monochrome_image_inverted_area;
 
-	bool goingUp   = true;
-	bool changeRow = false;
+	bool going_up_	 = true;
+	bool change_row_ = false;
 
-	struct formatCode
+	int db_blocks_;
+	std::vector<std::vector<int>> db_deinterleaving_lut_;
+	int number_of_Db_;
+
+	int raw_db_plus_ecb;
+
+	struct FormatCode
 	{
 		int err;
 		int mask;
 		uint32_t code;
 	};
 
-	struct formatCode detectedFormatCode;
+	struct FormatCode detected_format_code_;
 
 	struct QrConfig
 	{
@@ -174,38 +181,36 @@ class QrDecoder
 		int dbPerBlockInGroup2;
 	};
 
-	struct QrConfig detectedQrConfig;
+	struct QrConfig detected_qr_config_;
 
 	// http://www.cdsy.de/QR-Vorgaben.html
 	// TODO still a lot configs missing
-	std::initializer_list<QrConfig> configs{
-		{2, err_M, 16, 1, 28, 0, 0}, //
-		{5, err_M, 24, 2, 43, 0, 0}, //
+	const std::initializer_list<QrConfig> configs_{
+		{2, kErrM, 16, 1, 28, 0, 0}, //
+		{5, kErrM, 24, 2, 43, 0, 0}, //
 
-		{1, err_L, 7, 1, 19, 0, 0},	  //
-		{2, err_L, 10, 1, 34, 0, 0},  //
-		{5, err_L, 26, 1, 108, 0, 0}, //
+		{1, kErrL, 7, 1, 19, 0, 0},	  //
+		{2, kErrL, 10, 1, 34, 0, 0},  //
+		{5, kErrL, 26, 1, 108, 0, 0}, //
 
-		{4, err_H, 16, 4, 9, 0, 0},	  //
-		{5, err_H, 22, 2, 11, 2, 12}, //
+		{4, kErrH, 16, 4, 9, 0, 0},	  //
+		{5, kErrH, 22, 2, 11, 2, 12}, //
 
-		{4, err_Q, 26, 2, 24, 0, 0}, //
+		{4, kErrQ, 26, 2, 24, 0, 0}, //
 	};
-
-	int raw_db_plus_ecb;
 
 	void grabQrConfig()
 	{
 		// sizeInCells = version * 4 + 17;
 		// (sizeInCells - 17) / 4 = version
-		int version = (sizeInCells - 17) / 4;
-		assert(((sizeInCells - 17) % 4) == 0);
+		int version = (size_in_cells_ - 17) / 4;
+		assert(((size_in_cells_ - 17) % 4) == 0);
 
-		for (auto& c : configs)
+		for (auto& c : configs_)
 		{
-			if (c.version == version && detectedFormatCode.err == c.correctionLevel)
+			if (c.version == version && detected_format_code_.err == c.correctionLevel)
 			{
-				detectedQrConfig = c;
+				detected_qr_config_ = c;
 
 				raw_db_plus_ecb = (c.ecbPerBlock + c.dbPerBlockInGroup1) * c.blocksInGroup1 +
 								  (c.ecbPerBlock + c.dbPerBlockInGroup2) * c.blocksInGroup2;
@@ -216,7 +221,7 @@ class QrDecoder
 		if (debugMode)
 		{
 			printf("Unable to find config for version %d with correction level %s\n", version,
-				   correctionLevelStr[detectedFormatCode.err]);
+				   correctionLevelStr[detected_format_code_.err]);
 		}
 		throw QrCodeException(QrCodeException::Cause::kVersionNotSupported);
 	}
@@ -384,7 +389,6 @@ class QrDecoder
 						}
 					}
 				}
-#if 1
 				else if (candidateForFinderPattern == 1)
 				{
 
@@ -415,7 +419,7 @@ class QrDecoder
 						}
 					}
 				}
-#endif
+
 				// candidateForFinderPattern++;
 				nextparam = candidateForFinderPattern + 1;
 			}
@@ -483,9 +487,9 @@ class QrDecoder
 			assert(0);
 		}
 
-		for (int y = 0; y < sizeInCells; y++)
+		for (int y = 0; y < size_in_cells_; y++)
 		{
-			for (int x = 0; x < sizeInCells; x++)
+			for (int x = 0; x < size_in_cells_; x++)
 			{
 				if (isCellDataBit(x, y) && invert(y, x))
 					cells.at(y).at(x) = !cells.at(y).at(x);
@@ -602,14 +606,10 @@ class QrDecoder
 		{
 			finder_topLeft = finder2.at(0);
 			assert(0);
+			// TODO must still be developed
 		}
 		else
 		{
-			// cv::imshow("Display Image", monochrome_image_warped);
-			// cv::imshow("Display Image2", src_image_);
-			// cv::imwrite("monochrome_image_warped.png", monochrome_image_warped);
-
-			// cv::waitKey(0);
 			assert(0);
 		}
 
@@ -736,7 +736,7 @@ class QrDecoder
 		// cellsize = avgs.at(avgs.size() / 2) / 7.0f;
 
 		// auto cellsize	   = cv::norm(dst2[1] - dst2[0]) / 7.0f;
-		halfCellSize = cellsizeX / 2.0f;
+		half_cell_size_ = cellsizeX / 2.0f;
 		if (debugMode)
 		{
 			printf("cellsize %f %f\n", cv::norm(dst2[1] - dst2[0]), cellsizeX);
@@ -801,8 +801,8 @@ class QrDecoder
 				printf("Vertical distance Start %d %d\n", dist.first, dist.second);
 			// (pixelY + diff - halfCellSize)/y =
 			int diff  = (dist.first - dist.second) / 2;
-			float y	  = round((pixelY - halfCellSize) / cellsizeY);
-			cellsizeY = (pixelY - diff - halfCellSize) / y;
+			float y	  = round((pixelY - half_cell_size_) / cellsizeY);
+			cellsizeY = (pixelY - diff - half_cell_size_) / y;
 		}
 		else
 		{
@@ -810,8 +810,8 @@ class QrDecoder
 			if (debugMode)
 				printf("Horizontal Distance Start %d %d\n", dist.first, dist.second);
 			int diff  = (dist.first - dist.second) / 2;
-			float x	  = round((pixelX - halfCellSize) / cellsizeX);
-			cellsizeX = (pixelX - diff - halfCellSize) / x;
+			float x	  = round((pixelX - half_cell_size_) / cellsizeX);
+			cellsizeX = (pixelX - diff - half_cell_size_) / x;
 		}
 	}
 
@@ -822,7 +822,7 @@ class QrDecoder
 		int cellX;
 		int cellY;
 
-		int timing_pattern_black_cells = (sizeInCells - 7 * 2) / 2;
+		int timing_pattern_black_cells = (size_in_cells_ - 7 * 2) / 2;
 
 		if (debugMode)
 			printf("cellsize at start %f %f timing_pattern_black_cells %d\n", cellsizeX, cellsizeY,
@@ -836,12 +836,12 @@ class QrDecoder
 
 			cellX  = 6;
 			cellY  = 8 + 2 * i;
-			pixelX = round(halfCellSize + static_cast<float>(cellX) * cellsizeX);
-			pixelY = round(halfCellSize + static_cast<float>(cellY) * cellsizeY);
+			pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cellsizeX);
+			pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cellsizeY);
 			optimizeCellsizeWithEnclosedCell(pixelX, pixelY, true);
 
-			pixelX = round(halfCellSize + static_cast<float>(cellX) * cellsizeX);
-			pixelY = round(halfCellSize + static_cast<float>(cellY) * cellsizeY);
+			pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cellsizeX);
+			pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cellsizeY);
 
 			auto dist = verticalDistance(monochrome_image_warped, pixelX, pixelY);
 			if (debugMode)
@@ -849,8 +849,8 @@ class QrDecoder
 
 			cellX  = 8 + 2 * i;
 			cellY  = 6;
-			pixelX = round(halfCellSize + static_cast<float>(cellX) * cellsizeX);
-			pixelY = round(halfCellSize + static_cast<float>(cellY) * cellsizeY);
+			pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cellsizeX);
+			pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cellsizeY);
 			optimizeCellsizeWithEnclosedCell(pixelX, pixelY, false);
 		}
 
@@ -892,8 +892,8 @@ class QrDecoder
 
 		cellX  = 3;
 		cellY  = 3;
-		pixelX = round(halfCellSize + static_cast<float>(cellX) * cellsizeX);
-		pixelY = round(halfCellSize + static_cast<float>(cellY) * cellsizeY);
+		pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cellsizeX);
+		pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cellsizeY);
 		vdist  = verticalDistance(monochrome_image_warped, pixelX, pixelY);
 		hdist  = horizontalDistance(monochrome_image_warped, pixelX, pixelY);
 		cv::circle(monochrome_image_warped, cv::Point(pixelX, pixelY), 6, white);
@@ -906,11 +906,11 @@ class QrDecoder
 		cv::circle(monochrome_image_warped, cv::Point(pixelX, pixelY) + topLeftNudge, 6, white);
 
 		// Top right
-		cellX = sizeInCells - 4;
+		cellX = size_in_cells_ - 4;
 		cellY = 3;
 
-		pixelX = round(halfCellSize + static_cast<float>(cellX) * cellsizeX);
-		pixelY = round(halfCellSize + static_cast<float>(cellY) * cellsizeY);
+		pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cellsizeX);
+		pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cellsizeY);
 		vdist  = verticalDistance(monochrome_image_warped, pixelX, pixelY);
 		hdist  = horizontalDistance(monochrome_image_warped, pixelX, pixelY);
 		cv::circle(monochrome_image_warped, cv::Point(pixelX, pixelY), 6, white);
@@ -924,10 +924,10 @@ class QrDecoder
 
 		// Bottom left
 		cellX = 3;
-		cellY = sizeInCells - 4;
+		cellY = size_in_cells_ - 4;
 
-		pixelX = round(halfCellSize + static_cast<float>(cellX) * cellsizeX);
-		pixelY = round(halfCellSize + static_cast<float>(cellY) * cellsizeY);
+		pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cellsizeX);
+		pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cellsizeY);
 		vdist  = verticalDistance(monochrome_image_warped, pixelX, pixelY);
 		hdist  = horizontalDistance(monochrome_image_warped, pixelX, pixelY);
 		cv::circle(monochrome_image_warped, cv::Point(pixelX, pixelY), 6, white);
@@ -940,11 +940,11 @@ class QrDecoder
 		cv::circle(monochrome_image_warped, cv::Point(pixelX, pixelY) + bottomLeftNudge, 6, white);
 
 		// Alignment Pattern - Bottom Right
-		cellX = sizeInCells - 7;
-		cellY = sizeInCells - 7;
+		cellX = size_in_cells_ - 7;
+		cellY = size_in_cells_ - 7;
 
-		pixelX = round(halfCellSize + static_cast<float>(cellX) * cellsizeX);
-		pixelY = round(halfCellSize + static_cast<float>(cellY) * cellsizeY);
+		pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cellsizeX);
+		pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cellsizeY);
 
 		bottomRightCenterRef.x = pixelX;
 		bottomRightCenterRef.y = pixelY;
@@ -978,8 +978,8 @@ class QrDecoder
 		// Coarse
 		cv::Point point;
 		cv::Point nudge(0, 0);
-		point.x = round(halfCellSize + static_cast<float>(x) * cellsizeX);
-		point.y = round(halfCellSize + static_cast<float>(y) * cellsizeY);
+		point.x = round(half_cell_size_ + static_cast<float>(x) * cellsizeX);
+		point.y = round(half_cell_size_ + static_cast<float>(y) * cellsizeY);
 
 		if (fineNudge)
 		{
@@ -1004,12 +1004,12 @@ class QrDecoder
 
 	void extractCells()
 	{
-		for (int y = 0; y < sizeInCells; y++)
+		for (int y = 0; y < size_in_cells_; y++)
 		{
-			cells.push_back(std::vector<bool>(sizeInCells));
-			debug_cells.push_back(std::vector<char>(sizeInCells));
+			cells.push_back(std::vector<bool>(size_in_cells_));
+			debug_cells.push_back(std::vector<char>(size_in_cells_));
 
-			for (int x = 0; x < sizeInCells; x++)
+			for (int x = 0; x < size_in_cells_; x++)
 			{
 				auto p					= getCellPosition(x, y, true);
 				auto pNoNudge			= getCellPosition(x, y, false);
@@ -1025,43 +1025,43 @@ class QrDecoder
 	void extractFormat()
 	{
 		// from http://www.cdsy.de/formatbereiche.html
-		std::array<struct formatCode, 4 * 8> formats
+		std::array<struct FormatCode, 4 * 8> formats
 			//
-			{{{err_L, 0, 0b111011111000100}, //
-			  {err_L, 1, 0b111001011110011}, //
-			  {err_L, 2, 0b111110110101010}, //
-			  {err_L, 3, 0b111100010011101}, //
-			  {err_L, 4, 0b110011000101111}, //
-			  {err_L, 5, 0b110001100011000}, //
-			  {err_L, 6, 0b110110001000001}, //
-			  {err_L, 7, 0b110100101110110}, //
+			{{{kErrL, 0, 0b111011111000100}, //
+			  {kErrL, 1, 0b111001011110011}, //
+			  {kErrL, 2, 0b111110110101010}, //
+			  {kErrL, 3, 0b111100010011101}, //
+			  {kErrL, 4, 0b110011000101111}, //
+			  {kErrL, 5, 0b110001100011000}, //
+			  {kErrL, 6, 0b110110001000001}, //
+			  {kErrL, 7, 0b110100101110110}, //
 
-			  {err_M, 0, 0b101010000010010}, //
-			  {err_M, 1, 0b101000100100101}, //
-			  {err_M, 2, 0b101111001111100}, //
-			  {err_M, 3, 0b101101101001011}, //
-			  {err_M, 4, 0b100010111111001}, //
-			  {err_M, 5, 0b100000011001110}, //
-			  {err_M, 6, 0b100111110010111}, //
-			  {err_M, 7, 0b100101010100000}, //
+			  {kErrM, 0, 0b101010000010010}, //
+			  {kErrM, 1, 0b101000100100101}, //
+			  {kErrM, 2, 0b101111001111100}, //
+			  {kErrM, 3, 0b101101101001011}, //
+			  {kErrM, 4, 0b100010111111001}, //
+			  {kErrM, 5, 0b100000011001110}, //
+			  {kErrM, 6, 0b100111110010111}, //
+			  {kErrM, 7, 0b100101010100000}, //
 
-			  {err_Q, 0, 0b011010101011111}, //
-			  {err_Q, 1, 0b011000001101000}, //
-			  {err_Q, 2, 0b011111100110001}, //
-			  {err_Q, 3, 0b011101000000110}, //
-			  {err_Q, 4, 0b010010010110100}, //
-			  {err_Q, 5, 0b010000110000011}, //
-			  {err_Q, 6, 0b010111011011010}, //
-			  {err_Q, 7, 0b010101111101101}, //
+			  {kErrQ, 0, 0b011010101011111}, //
+			  {kErrQ, 1, 0b011000001101000}, //
+			  {kErrQ, 2, 0b011111100110001}, //
+			  {kErrQ, 3, 0b011101000000110}, //
+			  {kErrQ, 4, 0b010010010110100}, //
+			  {kErrQ, 5, 0b010000110000011}, //
+			  {kErrQ, 6, 0b010111011011010}, //
+			  {kErrQ, 7, 0b010101111101101}, //
 
-			  {err_H, 0, 0b001011010001001}, //
-			  {err_H, 1, 0b001001110111110}, //
-			  {err_H, 2, 0b001110011100111}, //
-			  {err_H, 3, 0b001100111010000}, //
-			  {err_H, 4, 0b000011101100010}, //
-			  {err_H, 5, 0b000001001010101}, //
-			  {err_H, 6, 0b000110100001100}, //
-			  {err_H, 7, 0b000100000111011}}};
+			  {kErrH, 0, 0b001011010001001}, //
+			  {kErrH, 1, 0b001001110111110}, //
+			  {kErrH, 2, 0b001110011100111}, //
+			  {kErrH, 3, 0b001100111010000}, //
+			  {kErrH, 4, 0b000011101100010}, //
+			  {kErrH, 5, 0b000001001010101}, //
+			  {kErrH, 6, 0b000110100001100}, //
+			  {kErrH, 7, 0b000100000111011}}};
 
 		// std::cout << formats.begin()->code << std::endl;
 		// auto formats = make_array<struct possibleFormats>({{err_L, 0, 0b111011111000100}});
@@ -1116,9 +1116,9 @@ class QrDecoder
 			int distance = hammingDistance(f.code, formatVal);
 			if (distance < minimalDist)
 			{
-				suggestedFormat	   = i;
-				detectedFormatCode = f;
-				minimalDist		   = distance;
+				suggestedFormat		  = i;
+				detected_format_code_ = f;
+				minimalDist			  = distance;
 			}
 			if (debugMode)
 			{
@@ -1126,16 +1126,15 @@ class QrDecoder
 			}
 		}
 
-		// assert(minimalDist == 0);
-		if (minimalDist > 2) // TODO 2 is wrong and must be recalculated for this hamming code
+		if (minimalDist > 3)
 		{
 			throw QrCodeException(QrCodeException::Cause::kFormatNotDetected);
 		}
 
 		if (debugMode)
 		{
-			printf("detected mask %d, detected correction level %s\n", detectedFormatCode.mask,
-				   correctionLevelStr[detectedFormatCode.err]);
+			printf("detected mask %d, detected correction level %s\n", detected_format_code_.mask,
+				   correctionLevelStr[detected_format_code_.err]);
 		}
 	}
 
@@ -1147,7 +1146,7 @@ class QrDecoder
 	bool isCellDataBit(int x, int y)
 	{
 		// Top right finder pattern with only one format area at the bottom
-		if (x > sizeInCells - 9 && y < 9)
+		if (x > size_in_cells_ - 9 && y < 9)
 			return false;
 
 		// Top left finder pattern with two format areas
@@ -1155,27 +1154,27 @@ class QrDecoder
 			return false;
 
 		// Bottom left finder pattern
-		if (x < 9 && y > sizeInCells - 9)
+		if (x < 9 && y > size_in_cells_ - 9)
 			return false;
 
 		// Timing patterns
 		if ((x == 6) || (y == 6))
 			return false;
 
-		if (detectedQrConfig.version > 1)
+		if (detected_qr_config_.version > 1)
 		{
 			// Alignment pattern
-			if (x >= sizeInCells - 9 && x < sizeInCells - 4 && y >= sizeInCells - 9 && y < sizeInCells - 4)
+			if (x >= size_in_cells_ - 9 && x < size_in_cells_ - 4 && y >= size_in_cells_ - 9 && y < size_in_cells_ - 4)
 				return false;
 		}
 
 		return true;
 	}
 
-	bool readBit()
+	bool readBitFromCells()
 	{
-		int& x = analyzePosition.x;
-		int& y = analyzePosition.y;
+		int& x = current_cell_position_.x;
+		int& y = current_cell_position_.y;
 
 		bool gotDataBit = false;
 		bool result;
@@ -1195,14 +1194,14 @@ class QrDecoder
 				// printf("Ignore from %d %d  %d\n", x, y, result ? 1 : 0);
 			}
 
-			if (changeRow)
+			if (change_row_)
 			{
-				if (goingUp)
+				if (going_up_)
 				{
 					if (y == 0)
 					{
 						x -= 2;
-						goingUp = false;
+						going_up_ = false;
 						// printf("Going down!\n");
 
 						if (isCellOnTimingPattern(x + 1, y))
@@ -1216,10 +1215,10 @@ class QrDecoder
 				}
 				else
 				{
-					if (y == sizeInCells - 1)
+					if (y == size_in_cells_ - 1)
 					{
 						x -= 2;
-						goingUp = true;
+						going_up_ = true;
 						// printf("Going up!\n");
 
 						if (isCellOnTimingPattern(x + 1, y))
@@ -1239,19 +1238,19 @@ class QrDecoder
 				x--;
 			}
 
-			changeRow = !changeRow;
+			change_row_ = !change_row_;
 		}
 
 		return result;
 	}
 
-	int readWord(int bitlen)
+	int readWordFromCells(int bitlen)
 	{
 		int result = 0;
 		while (bitlen--)
 		{
 			result <<= 1;
-			if (readBit())
+			if (readBitFromCells())
 				result |= 1;
 		}
 
@@ -1260,228 +1259,44 @@ class QrDecoder
 		return result;
 	}
 
-  public:
-	std::array<char, 45> alphanumeric_lut = {
-		'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
-		'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-		'U', 'V', 'W', 'X', 'Y', 'Z', ' ', '$', '%', '*', '+', '-', '.', '/', ':',
-	};
-
-	bool debugMode{false};
-	bool debugModeVisual{false};
-
-	bool code_needed_correction_{false};
-
-	std::vector<char> decodeFromFile(const char* filepath)
+	void buildDbDeinterleavingLut()
 	{
-		reset();
+		db_blocks_	  = detected_qr_config_.blocksInGroup1 + detected_qr_config_.blocksInGroup2;
+		number_of_Db_ = detected_qr_config_.blocksInGroup1 * detected_qr_config_.dbPerBlockInGroup1 +
+						detected_qr_config_.blocksInGroup2 * detected_qr_config_.dbPerBlockInGroup2;
 
-		if (debugMode)
+		db_deinterleaving_lut_.clear();
+		for (int i = 0; i < detected_qr_config_.blocksInGroup1; i++)
 		{
-			printf("Reading %s\n", filepath);
+			db_deinterleaving_lut_.emplace_back(std::vector<int>());
+		}
+		for (int i = 0; i < detected_qr_config_.blocksInGroup2; i++)
+		{
+			db_deinterleaving_lut_.emplace_back(std::vector<int>());
 		}
 
-		src_image_ = cv::imread(filepath, 1);
-		if (!src_image_.data)
-		{
-			printf("No image data \n");
-			throw QrCodeException(QrCodeException::Cause::kFileNotReadable);
-		}
-
-		cv::Mat src_image_as_grayscale, grayscale_blurred;
-		cv::Mat monochrome_image_inverted;
-		cv::Mat monochrome_image_normal;
-
-		// Convert image to grayscale
-		cv::cvtColor(src_image_, src_image_as_grayscale, cv::COLOR_BGR2GRAY);
-
-		// Blur the grayscale image to filter out small artefacts
-		if (src_image_as_grayscale.cols < 500 || src_image_as_grayscale.rows < 500)
-			cv::resize(src_image_as_grayscale, grayscale_blurred, cv::Size(0, 0), 3, 3);
-		else
-			cv::GaussianBlur(src_image_as_grayscale, grayscale_blurred, cv::Size(11, 11), 0, 0);
-
-		// Convert grayscale to monochrome image
-		cv::adaptiveThreshold(grayscale_blurred, monochrome_image_inverted, 255, cv::ADAPTIVE_THRESH_MEAN_C,
-							  cv::THRESH_BINARY_INV, 131, 0);
-
-		// Find Contours in the monochrome image
-		cv::findContours(monochrome_image_inverted, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-
-		monochrome_image_inverted_area = monochrome_image_inverted.cols * monochrome_image_inverted.rows;
-
-		// Try to find the finder patterns in the contour data
-		searchFinderPatternPoints(0, 0);
-
-		if (finder_contour_points.size() != 3)
-		{
-			printf("No 3 finders\n");
-
-			if (debugModeVisual)
-			{
-				cv::imshow("src_image_as_grayscale", src_image_as_grayscale);
-				cv::imshow("grayscale_blurred", grayscale_blurred);
-				cv::imshow("monochrome_image_inverted", monochrome_image_inverted);
-				cv::imshow("src_image_", src_image_);
-
-				cv::waitKey(0);
-			}
-
-			throw QrCodeException(QrCodeException::Cause::kNotEnoughFinderPattern);
-		}
-
-		// Find the average of all finder pattern points to check where the center of the code might be
-		assumeFinderPatternCenter();
-
-		if (debugModeVisual)
-		{
-			cv::imshow("src_image_as_grayscale", src_image_as_grayscale);
-			cv::imshow("grayscale_blurred", grayscale_blurred);
-			cv::imshow("monochrome_image_inverted", monochrome_image_inverted);
-			cv::imshow("src_image_", src_image_);
-
-			cv::waitKey(0);
-		}
-
-		reconstructShapeOfCode();
-
-		cv::bitwise_not(monochrome_image_inverted, monochrome_image_normal);
-
-		cv::warpPerspective(monochrome_image_normal, monochrome_image_warped, transform,
-							cv::Size(warped_size, warped_size));
-
-		float cellsizeAvg  = (cellsizeX + cellsizeY) / 2;
-		float sizeInCellsF = static_cast<float>(warped_size) / cellsizeAvg;
-
-		sizeInCells = round(sizeInCellsF);
-
-		if (debugMode)
-			printf("sizeInCells %d %f\n", sizeInCells, sizeInCellsF);
-
-		optimizeCellsizeWithTimingPattern();
-
-		calibrateCellNudge();
-
-		extractCells();
-
-		if (debugModeVisual)
-		{
-			cv::imshow("src_image_as_grayscale", src_image_as_grayscale);
-			cv::imshow("grayscale_blurred", grayscale_blurred);
-			cv::imshow("monochrome_image_inverted", monochrome_image_inverted);
-			cv::imshow("src_image_", src_image_);
-			cv::imshow("monochrome_image_warped", monochrome_image_warped);
-			cv::imwrite("monochrome_image_warped.png", monochrome_image_warped);
-
-			cv::waitKey(0);
-		}
-
-		extractFormat();
-
-		grabQrConfig();
-
-		if (debugMode)
-		{
-			printf("--- Original Cells ------\n");
-			for (const auto& c : cells)
-			{
-				for (const auto& p : c)
-				{
-					printf("%d", p ? 1 : 0);
-				}
-				printf("\n");
-			}
-		}
-
-		applyMask(detectedFormatCode.mask);
-
-		if (debugMode)
-		{
-			printf("---- Mask applied -------\n");
-			for (const auto& c : cells)
-			{
-				for (const auto& p : c)
-				{
-					printf("%d", p ? 1 : 0);
-				}
-				printf("\n");
-			}
-		}
-
-		analyzePosition.x = sizeInCells - 1;
-		analyzePosition.y = sizeInCells - 1;
-
-		std::vector<uint8_t> rawData;
-		int raw_len_to_read = raw_db_plus_ecb;
-		debug_cell_val		= 'A';
-
-		while (raw_len_to_read--)
-		{
-			int data = readWord(8);
-			rawData.push_back(data);
-
-			if (debug_cell_val == 'Z')
-				debug_cell_val = 'a';
-			else
-				debug_cell_val++;
-		}
-
-		if (debugMode)
-		{
-			for (const auto& c : debug_cells)
-			{
-				for (const auto& p : c)
-				{
-					printf("%c", p);
-				}
-				printf("\n");
-			}
-
-			printf("size : %d\n", rawData.size());
-			for (auto& v : rawData)
-			{
-				printf("%d ", v);
-			}
-			printf("\n");
-		}
-		std::vector<uint8_t> raw_decoded_data;
-
-		int numberOfDb = detectedQrConfig.blocksInGroup1 * detectedQrConfig.dbPerBlockInGroup1 +
-						 detectedQrConfig.blocksInGroup2 * detectedQrConfig.dbPerBlockInGroup2;
-		int blocks = detectedQrConfig.blocksInGroup1 + detectedQrConfig.blocksInGroup2;
-
-		std::vector<std::vector<int>> db_deinterleaving_lut;
-		for (int i = 0; i < detectedQrConfig.blocksInGroup1; i++)
-		{
-			db_deinterleaving_lut.emplace_back(std::vector<int>());
-		}
-		for (int i = 0; i < detectedQrConfig.blocksInGroup2; i++)
-		{
-			db_deinterleaving_lut.emplace_back(std::vector<int>());
-		}
-
-		int maxSizeOfDbBlock = std::max(detectedQrConfig.dbPerBlockInGroup1, detectedQrConfig.dbPerBlockInGroup2);
+		int maxSizeOfDbBlock = std::max(detected_qr_config_.dbPerBlockInGroup1, detected_qr_config_.dbPerBlockInGroup2);
 
 		int dbOffset  = 0;
-		int dbToRead  = detectedQrConfig.dbPerBlockInGroup1 + detectedQrConfig.dbPerBlockInGroup2;
+		int dbToRead  = detected_qr_config_.dbPerBlockInGroup1 + detected_qr_config_.dbPerBlockInGroup2;
 		int dbOffset2 = 0;
 		while (maxSizeOfDbBlock > 0)
 		{
 			maxSizeOfDbBlock--;
-			for (int j = 0; j < detectedQrConfig.blocksInGroup1; j++)
+			for (int j = 0; j < detected_qr_config_.blocksInGroup1; j++)
 			{
-				if (dbOffset2 < detectedQrConfig.dbPerBlockInGroup1)
+				if (dbOffset2 < detected_qr_config_.dbPerBlockInGroup1)
 				{
-					db_deinterleaving_lut.at(j).push_back(dbOffset);
+					db_deinterleaving_lut_.at(j).push_back(dbOffset);
 					dbOffset++;
 				}
 			}
 
-			for (int j = 0; j < detectedQrConfig.blocksInGroup2; j++)
+			for (int j = 0; j < detected_qr_config_.blocksInGroup2; j++)
 			{
-				if (dbOffset2 < detectedQrConfig.dbPerBlockInGroup2)
+				if (dbOffset2 < detected_qr_config_.dbPerBlockInGroup2)
 				{
-					db_deinterleaving_lut.at(detectedQrConfig.blocksInGroup1 + j).push_back(dbOffset);
+					db_deinterleaving_lut_.at(detected_qr_config_.blocksInGroup1 + j).push_back(dbOffset);
 					dbOffset++;
 				}
 			}
@@ -1490,8 +1305,8 @@ class QrDecoder
 
 		if (debugMode)
 		{
-			printf("Interleaving Lut ---- %d\n", db_deinterleaving_lut.size());
-			for (auto& b : db_deinterleaving_lut)
+			printf("Interleaving Lut ---- %d\n", db_deinterleaving_lut_.size());
+			for (auto& b : db_deinterleaving_lut_)
 			{
 				for (auto& offset : b)
 				{
@@ -1502,94 +1317,10 @@ class QrDecoder
 			printf("-------------\n");
 		}
 		assert(maxSizeOfDbBlock == 0);
+	}
 
-		for (int block = 0; block < blocks; block++)
-		{
-			std::vector<ExtFiniteField256> rsData;
-
-			int k = db_deinterleaving_lut.at(block).size();
-			int t = detectedQrConfig.ecbPerBlock;
-			int n = k + t;
-
-			int dbstart	 = block;
-			int eccstart = numberOfDb + block;
-			int offset	 = dbstart;
-
-			for (int i = 0; i < k; i++)
-			{
-				rsData.push_back(rawData.at(db_deinterleaving_lut.at(block).at(i)));
-			}
-
-			for (int i = 0; i < t; i++)
-			{
-				rsData.push_back(rawData.at(eccstart + i * blocks));
-			}
-
-			if (debugMode)
-			{
-				printf("In:  ");
-				for (auto& v : rsData)
-				{
-					printf("%02x ", v);
-				}
-				printf("\n");
-			}
-
-			RS::ReedSolomon<ExtFiniteField256> rs(n, k);
-			std::reverse(rsData.begin(), rsData.end());
-
-			auto rsPolynomial		= Polynom<ExtFiniteField256>(rsData);
-			auto syndromes			= rs.calculateSyndromes(rsPolynomial);
-			bool allSyndromesZero	= syndromes.second;
-			code_needed_correction_ = !allSyndromesZero;
-
-			if (debugMode)
-			{
-				for (auto& s : syndromes.first)
-				{
-					std::cout << "Syndrome " << s << std::endl;
-				}
-			}
-			auto decoded_message = rs.decode(rsPolynomial);
-
-			if (debugMode)
-			{
-				std::cout << decoded_message.asString() << std::endl;
-			}
-
-			auto raw_decoded_data_extfield = decoded_message.getRawData();
-
-			std::reverse(raw_decoded_data_extfield.begin(), raw_decoded_data_extfield.end());
-
-			if (debugMode)
-			{
-				printf("Out: ");
-				for (auto& v : raw_decoded_data_extfield)
-				{
-					printf("%02x ", v);
-				}
-				printf("\n");
-			}
-			raw_decoded_data_extfield.resize(k);
-
-			// std::reverse(raw_decoded_data.begin(), raw_decoded_data.end());
-			for (auto it = std::begin(raw_decoded_data_extfield); it != std::end(raw_decoded_data_extfield); ++it)
-			{
-				raw_decoded_data.push_back(*it);
-			}
-		}
-
-		if (debugMode)
-		{
-			printf("size : %d\n", raw_decoded_data.size());
-			for (auto& v : raw_decoded_data)
-			{
-				printf("%d ", v);
-			}
-			printf("\n");
-		}
-
-		BitStreamReader bitstream(raw_decoded_data);
+	std::vector<char> extractPayload(BitStreamReader& bitstream)
+	{
 		bool reading = true;
 		std::vector<char> payload_data;
 		while (reading)
@@ -1697,35 +1428,294 @@ class QrDecoder
 			}
 		}
 
-#if 0
-		for (const auto& c : contours)
+		return payload_data;
+	}
+
+	std::vector<uint8_t> deinterleaveAndForwardErrorCorrect(std::vector<uint8_t> rawData)
+	{
+		std::vector<uint8_t> raw_decoded_data;
+
+		for (int block = 0; block < db_blocks_; block++)
 		{
-			for (const auto& p : c)
+			std::vector<ExtFiniteField256> rsData;
+
+			int k = db_deinterleaving_lut_.at(block).size();
+			int t = detected_qr_config_.ecbPerBlock;
+			int n = k + t;
+
+			int dbstart	 = block;
+			int eccstart = number_of_Db_ + block;
+			int offset	 = dbstart;
+
+			for (int i = 0; i < k; i++)
 			{
-				printf("", p.x, p.y);
+				rsData.push_back(rawData.at(db_deinterleaving_lut_.at(block).at(i)));
+			}
+
+			for (int i = 0; i < t; i++)
+			{
+				rsData.push_back(rawData.at(eccstart + i * db_blocks_));
+			}
+
+			if (debugMode)
+			{
+				printf("In:  ");
+				for (auto& v : rsData)
+				{
+					printf("%02x ", v);
+				}
+				printf("\n");
+			}
+
+			RS::ReedSolomon<ExtFiniteField256> rs(n, k);
+			std::reverse(rsData.begin(), rsData.end());
+
+			auto rsPolynomial		= Polynom<ExtFiniteField256>(rsData);
+			auto syndromes			= rs.calculateSyndromes(rsPolynomial);
+			bool allSyndromesZero	= syndromes.second;
+			code_needed_correction_ = !allSyndromesZero;
+
+			if (debugMode)
+			{
+				for (auto& s : syndromes.first)
+				{
+					std::cout << "Syndrome " << s << std::endl;
+				}
+			}
+			auto decoded_message = rs.decode(rsPolynomial);
+
+			if (debugMode)
+			{
+				std::cout << decoded_message.asString() << std::endl;
+			}
+
+			auto raw_decoded_data_extfield = decoded_message.getRawData();
+
+			std::reverse(raw_decoded_data_extfield.begin(), raw_decoded_data_extfield.end());
+
+			if (debugMode)
+			{
+				printf("Out: ");
+				for (auto& v : raw_decoded_data_extfield)
+				{
+					printf("%02x ", v);
+				}
+				printf("\n");
+			}
+			raw_decoded_data_extfield.resize(k);
+
+			// std::reverse(raw_decoded_data.begin(), raw_decoded_data.end());
+			for (auto it = std::begin(raw_decoded_data_extfield); it != std::end(raw_decoded_data_extfield); ++it)
+			{
+				raw_decoded_data.push_back(*it);
 			}
 		}
-#endif
 
-#if 0
-		for (int y = 0; y < sizeInCells; y++)
+		if (debugMode)
 		{
-			for (int x = 0; x < sizeInCells; x++)
+			printf("size : %d\n", raw_decoded_data.size());
+			for (auto& v : raw_decoded_data)
 			{
-				printf("%d", isCellDataBit(x,y) ? 1 : 0);
+				printf("%d ", v);
 			}
 			printf("\n");
 		}
-#endif
 
-#if 0
-		// cv::namedWindow("Display Image", cv::WINDOW_AUTOSIZE);
-		cv::imshow("Display Image", monochrome_image_warped);
-		cv::imshow("Display Image2", src_image_);
-		cv::imwrite("monochrome_image_warped.png", monochrome_image_warped);
+		return raw_decoded_data;
+	}
 
-		cv::waitKey(0);
-#endif
+  public:
+	std::array<char, 45> alphanumeric_lut = {
+		'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
+		'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
+		'U', 'V', 'W', 'X', 'Y', 'Z', ' ', '$', '%', '*', '+', '-', '.', '/', ':',
+	};
+
+	bool debugMode{false};
+	bool debugModeVisual{false};
+
+	bool code_needed_correction_{false};
+
+	std::vector<char> decodeFromFile(const char* filepath)
+	{
+		reset();
+
+		if (debugMode)
+		{
+			printf("Reading %s\n", filepath);
+		}
+
+		src_image_ = cv::imread(filepath, 1);
+		if (!src_image_.data)
+		{
+			printf("No image data \n");
+			throw QrCodeException(QrCodeException::Cause::kFileNotReadable);
+		}
+
+		cv::Mat src_image_as_grayscale, grayscale_blurred;
+		cv::Mat monochrome_image_inverted;
+		cv::Mat monochrome_image_normal;
+
+		// Convert image to grayscale
+		cv::cvtColor(src_image_, src_image_as_grayscale, cv::COLOR_BGR2GRAY);
+
+		// Blur the grayscale image to filter out small artefacts
+		if (src_image_as_grayscale.cols < 500 || src_image_as_grayscale.rows < 500)
+			cv::resize(src_image_as_grayscale, grayscale_blurred, cv::Size(0, 0), 3, 3);
+		else
+			cv::GaussianBlur(src_image_as_grayscale, grayscale_blurred, cv::Size(11, 11), 0, 0);
+
+		// Convert grayscale to monochrome image
+		cv::adaptiveThreshold(grayscale_blurred, monochrome_image_inverted, 255, cv::ADAPTIVE_THRESH_MEAN_C,
+							  cv::THRESH_BINARY_INV, 131, 0);
+
+		// Find Contours in the monochrome image
+		cv::findContours(monochrome_image_inverted, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
+
+		monochrome_image_inverted_area = monochrome_image_inverted.cols * monochrome_image_inverted.rows;
+
+		// Try to find the finder patterns in the contour data
+		searchFinderPatternPoints(0, 0);
+
+		if (finder_contour_points.size() != 3)
+		{
+			printf("No 3 finders\n");
+
+			if (debugModeVisual)
+			{
+				cv::imshow("src_image_as_grayscale", src_image_as_grayscale);
+				cv::imshow("grayscale_blurred", grayscale_blurred);
+				cv::imshow("monochrome_image_inverted", monochrome_image_inverted);
+				cv::imshow("src_image_", src_image_);
+
+				cv::waitKey(0);
+			}
+
+			throw QrCodeException(QrCodeException::Cause::kNotEnoughFinderPattern);
+		}
+
+		// Find the average of all finder pattern points to check where the center of the code might be
+		assumeFinderPatternCenter();
+
+		if (debugModeVisual)
+		{
+			cv::imshow("src_image_as_grayscale", src_image_as_grayscale);
+			cv::imshow("grayscale_blurred", grayscale_blurred);
+			cv::imshow("monochrome_image_inverted", monochrome_image_inverted);
+			cv::imshow("src_image_", src_image_);
+
+			cv::waitKey(0);
+		}
+
+		reconstructShapeOfCode();
+
+		cv::bitwise_not(monochrome_image_inverted, monochrome_image_normal);
+
+		cv::warpPerspective(monochrome_image_normal, monochrome_image_warped, transform,
+							cv::Size(warped_size, warped_size));
+
+		float cellsizeAvg  = (cellsizeX + cellsizeY) / 2;
+		float sizeInCellsF = static_cast<float>(warped_size) / cellsizeAvg;
+
+		size_in_cells_ = round(sizeInCellsF);
+
+		if (debugMode)
+			printf("sizeInCells %d %f\n", size_in_cells_, sizeInCellsF);
+
+		optimizeCellsizeWithTimingPattern();
+
+		calibrateCellNudge();
+
+		extractCells();
+
+		if (debugModeVisual)
+		{
+			cv::imshow("src_image_as_grayscale", src_image_as_grayscale);
+			cv::imshow("grayscale_blurred", grayscale_blurred);
+			cv::imshow("monochrome_image_inverted", monochrome_image_inverted);
+			cv::imshow("src_image_", src_image_);
+			cv::imshow("monochrome_image_warped", monochrome_image_warped);
+			cv::imwrite("monochrome_image_warped.png", monochrome_image_warped);
+
+			cv::waitKey(0);
+		}
+
+		extractFormat();
+
+		grabQrConfig();
+
+		if (debugMode)
+		{
+			printf("--- Original Cells ------\n");
+			for (const auto& c : cells)
+			{
+				for (const auto& p : c)
+				{
+					printf("%d", p ? 1 : 0);
+				}
+				printf("\n");
+			}
+		}
+
+		applyMask(detected_format_code_.mask);
+
+		if (debugMode)
+		{
+			printf("---- Mask applied -------\n");
+			for (const auto& c : cells)
+			{
+				for (const auto& p : c)
+				{
+					printf("%d", p ? 1 : 0);
+				}
+				printf("\n");
+			}
+		}
+
+		current_cell_position_.x = size_in_cells_ - 1;
+		current_cell_position_.y = size_in_cells_ - 1;
+
+		std::vector<uint8_t> rawData;
+		int raw_len_to_read = raw_db_plus_ecb;
+		debug_cell_val		= 'A';
+
+		while (raw_len_to_read--)
+		{
+			int data = readWordFromCells(8);
+			rawData.push_back(data);
+
+			if (debug_cell_val == 'Z')
+				debug_cell_val = 'a';
+			else
+				debug_cell_val++;
+		}
+
+		if (debugMode)
+		{
+			for (const auto& c : debug_cells)
+			{
+				for (const auto& p : c)
+				{
+					printf("%c", p);
+				}
+				printf("\n");
+			}
+
+			printf("size : %d\n", rawData.size());
+			for (auto& v : rawData)
+			{
+				printf("%d ", v);
+			}
+			printf("\n");
+		}
+
+		buildDbDeinterleavingLut();
+
+		std::vector<uint8_t> raw_decoded_data = deinterleaveAndForwardErrorCorrect(rawData);
+
+		BitStreamReader bitstream(raw_decoded_data);
+
+		auto payload_data = extractPayload(bitstream);
 
 		return payload_data;
 	}
