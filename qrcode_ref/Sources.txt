@@ -1,0 +1,33 @@
+--- Credit is given where credit is deserved ---
+
+Japan-qr-code-billboard.jpg
+	https://de.wikipedia.org/wiki/QR-Code#/media/Datei:Japan-qr-code-billboard.jpg
+
+Qr-projekt-taunusanlage-beethoven-denkmal-2011-ffm-029.jpg
+	https://de.wikipedia.org/wiki/QR-Code#/media/Datei:Qr-projekt-taunusanlage-beethoven-denkmal-2011-ffm-029.jpg
+
+https://de.wikipedia.org/wiki/QR-Code#/media/Datei:QR_deWP.svg
+	testcode_wikipedia.png
+	testcode_wikipedia_perspective.png
+
+https://www.googlewatchblog.de/wp-content/uploads/google-chrome-qr-1-1.jpg
+	testcode_weird.png
+
+https://www.stadt-zuerich.ch/content/dam/stzh/hbd/Deutsch/Hochbau/Grafik%20und%20Foto/Kunst_Bau/ArtLoops/schild_qrcode.jpg
+	schild_qrcode.jpg
+
+https://www.arminhanisch.de/2018/10/qr-codes-lesen/
+	testcode_ArminHanisch.png
+
+https://qrcode.tec-it.com/de/Phone
+	numeric.png
+	numeric2.png
+	numeric3.png
+	numeric4.png
+
+https://qrcode.tec-it.com/de/SEPA
+	multi_mode.png
+
+Personally added:
+	testcode_car.jpg
+	testcode_car2.png

@@ -2,23 +2,23 @@ cmake_minimum_required(VERSION 3.12)
 
 project(qrcode)
 
-include_directories(${CMAKE_SOURCE_DIR})
+find_package( OpenCV REQUIRED )
 
-add_executable(qrcode
-	main.cpp
-	ExtFiniteField256.cpp
-)
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+include_directories(${CMAKE_SOURCE_DIR}/src)
 
 aux_source_directory(test TEST_SRC_LIST)
 add_executable(unittest
 	${TEST_SRC_LIST}
-	ExtFiniteField256.cpp
+	src/ExtFiniteField256.cpp
 )
 
-target_link_libraries(unittest gtest pthread)
+target_link_libraries(unittest gtest pthread  ${OpenCV_LIBS})
 
 target_compile_options(unittest PUBLIC -O0 -g --coverage)
-target_compile_options(qrcode PUBLIC -O2)
+#target_compile_options(unittest PUBLIC -O2)
+#target_compile_options(qrcode PUBLIC -O2)
+
 target_link_options(unittest PUBLIC --coverage)
 
 add_custom_target(lcov
@@ -37,16 +37,19 @@ add_custom_target(doxygen
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
-find_package( OpenCV REQUIRED )
 
-include_directories( ${OpenCV_INCLUDE_DIRS} )
 
-add_executable(scanner
-	scanner.cpp
-	ExtFiniteField256.cpp
+add_executable(reedsolomon
+	src/main_reedsolomon.cpp
+	src/ExtFiniteField256.cpp
 )
 
-target_compile_options(scanner PUBLIC -O0 -g)
+add_executable(qrcode
+	src/main_qrcode.cpp
+	src/ExtFiniteField256.cpp
+)
 
-target_link_libraries( scanner ${OpenCV_LIBS} )
+target_compile_options(qrcode PUBLIC -O0 -g)
+
+target_link_libraries( qrcode ${OpenCV_LIBS} )
 

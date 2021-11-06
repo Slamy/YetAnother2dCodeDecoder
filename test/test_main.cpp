@@ -20,6 +20,7 @@ int main(int argc, char** argv)
 	FiniteField19::findPrimitiveElement();
 
 	ExtFiniteField256::buildReciprocal();
+	ExtFiniteField256::findPrimitiveElement();
 
 	return RUN_ALL_TESTS();
 }
