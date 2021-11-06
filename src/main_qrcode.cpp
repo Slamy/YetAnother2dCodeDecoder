@@ -34,9 +34,9 @@ int main(int argc, char** argv)
 	qr.debugMode = true;
 
 	// qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/schild_qrcode.jpg");
-	// qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/qr-code.png");
+	qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/qr-code.png");
 	// qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/Qr-projekt-taunusanlage-beethoven-denkmal-2011-ffm-029.jpg");
-	qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/numeric3.png");
+	// qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/numeric3.png");
 	// qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/testcode_car.jpg");
 	// qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/testcode_car2.png");
 	// qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/testcode_weird.png");

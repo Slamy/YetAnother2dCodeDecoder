@@ -28,6 +28,9 @@ https://qrcode.tec-it.com/de/Phone
 https://qrcode.tec-it.com/de/SEPA
 	multi_mode.png
 
+https://qrcode.tec-it.com/de/wifi
+	wifi_key.png
+
 Personally added:
 	testcode_car.jpg
 	testcode_car2.png

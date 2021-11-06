@@ -170,6 +170,8 @@ class QrDecoder
 		int ecbPerBlock;
 		int blocksInGroup1;
 		int dbPerBlockInGroup1;
+		int blocksInGroup2;
+		int dbPerBlockInGroup2;
 	};
 
 	struct QrConfig detectedQrConfig;
@@ -177,16 +179,17 @@ class QrDecoder
 	// http://www.cdsy.de/QR-Vorgaben.html
 	// TODO still a lot configs missing
 	std::initializer_list<QrConfig> configs{
-		{2, err_M, 16, 1, 28}, //
-		{5, err_M, 24, 2, 43}, //
+		{2, err_M, 16, 1, 28, 0, 0}, //
+		{5, err_M, 24, 2, 43, 0, 0}, //
 
-		{1, err_L, 7, 1, 19},	//
-		{2, err_L, 10, 1, 34},	//
-		{5, err_L, 26, 1, 108}, //
+		{1, err_L, 7, 1, 19, 0, 0},	  //
+		{2, err_L, 10, 1, 34, 0, 0},  //
+		{5, err_L, 26, 1, 108, 0, 0}, //
 
-		{4, err_H, 16, 4, 9}, //
+		{4, err_H, 16, 4, 9, 0, 0},	  //
+		{5, err_H, 22, 2, 11, 2, 12}, //
 
-		{4, err_Q, 26, 2, 24}, //
+		{4, err_Q, 26, 2, 24, 0, 0}, //
 	};
 
 	int raw_db_plus_ecb;
@@ -204,7 +207,8 @@ class QrDecoder
 			{
 				detectedQrConfig = c;
 
-				raw_db_plus_ecb = (c.ecbPerBlock + c.dbPerBlockInGroup1) * c.blocksInGroup1;
+				raw_db_plus_ecb = (c.ecbPerBlock + c.dbPerBlockInGroup1) * c.blocksInGroup1 +
+								  (c.ecbPerBlock + c.dbPerBlockInGroup2) * c.blocksInGroup2;
 				return;
 			}
 		}
@@ -1264,6 +1268,8 @@ class QrDecoder
 	};
 
 	bool debugMode{false};
+	bool debugModeVisual{false};
+
 	bool code_needed_correction_{false};
 
 	std::vector<char> decodeFromFile(const char* filepath)
@@ -1299,9 +1305,6 @@ class QrDecoder
 		cv::adaptiveThreshold(grayscale_blurred, monochrome_image_inverted, 255, cv::ADAPTIVE_THRESH_MEAN_C,
 							  cv::THRESH_BINARY_INV, 131, 0);
 
-		// cv::Mat dilated;
-		// cv::dilate(src, dst, kernel, anchor, iterations, borderType, borderValue)
-
 		// Find Contours in the monochrome image
 		cv::findContours(monochrome_image_inverted, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 
@@ -1314,7 +1317,7 @@ class QrDecoder
 		{
 			printf("No 3 finders\n");
 
-			if (debugMode)
+			if (debugModeVisual)
 			{
 				cv::imshow("src_image_as_grayscale", src_image_as_grayscale);
 				cv::imshow("grayscale_blurred", grayscale_blurred);
@@ -1330,7 +1333,7 @@ class QrDecoder
 		// Find the average of all finder pattern points to check where the center of the code might be
 		assumeFinderPatternCenter();
 
-		if (debugMode)
+		if (debugModeVisual)
 		{
 			cv::imshow("src_image_as_grayscale", src_image_as_grayscale);
 			cv::imshow("grayscale_blurred", grayscale_blurred);
@@ -1361,7 +1364,7 @@ class QrDecoder
 
 		extractCells();
 
-		if (debugMode)
+		if (debugModeVisual)
 		{
 			cv::imshow("src_image_as_grayscale", src_image_as_grayscale);
 			cv::imshow("grayscale_blurred", grayscale_blurred);
@@ -1441,29 +1444,85 @@ class QrDecoder
 			}
 			printf("\n");
 		}
-#if 1
 		std::vector<uint8_t> raw_decoded_data;
 
-		// std::reverse(rawData.begin(), rawData.end());
-		for (int block = 0; block < detectedQrConfig.blocksInGroup1; block++)
+		int numberOfDb = detectedQrConfig.blocksInGroup1 * detectedQrConfig.dbPerBlockInGroup1 +
+						 detectedQrConfig.blocksInGroup2 * detectedQrConfig.dbPerBlockInGroup2;
+		int blocks = detectedQrConfig.blocksInGroup1 + detectedQrConfig.blocksInGroup2;
+
+		std::vector<std::vector<int>> db_deinterleaving_lut;
+		for (int i = 0; i < detectedQrConfig.blocksInGroup1; i++)
+		{
+			db_deinterleaving_lut.emplace_back(std::vector<int>());
+		}
+		for (int i = 0; i < detectedQrConfig.blocksInGroup2; i++)
+		{
+			db_deinterleaving_lut.emplace_back(std::vector<int>());
+		}
+
+		int maxSizeOfDbBlock = std::max(detectedQrConfig.dbPerBlockInGroup1, detectedQrConfig.dbPerBlockInGroup2);
+
+		int dbOffset  = 0;
+		int dbToRead  = detectedQrConfig.dbPerBlockInGroup1 + detectedQrConfig.dbPerBlockInGroup2;
+		int dbOffset2 = 0;
+		while (maxSizeOfDbBlock > 0)
+		{
+			maxSizeOfDbBlock--;
+			for (int j = 0; j < detectedQrConfig.blocksInGroup1; j++)
+			{
+				if (dbOffset2 < detectedQrConfig.dbPerBlockInGroup1)
+				{
+					db_deinterleaving_lut.at(j).push_back(dbOffset);
+					dbOffset++;
+				}
+			}
+
+			for (int j = 0; j < detectedQrConfig.blocksInGroup2; j++)
+			{
+				if (dbOffset2 < detectedQrConfig.dbPerBlockInGroup2)
+				{
+					db_deinterleaving_lut.at(detectedQrConfig.blocksInGroup1 + j).push_back(dbOffset);
+					dbOffset++;
+				}
+			}
+			dbOffset2++;
+		}
+
+		if (debugMode)
+		{
+			printf("Interleaving Lut ---- %d\n", db_deinterleaving_lut.size());
+			for (auto& b : db_deinterleaving_lut)
+			{
+				for (auto& offset : b)
+				{
+					printf("%4d ", offset);
+				}
+				printf("\n");
+			}
+			printf("-------------\n");
+		}
+		assert(maxSizeOfDbBlock == 0);
+
+		for (int block = 0; block < blocks; block++)
 		{
 			std::vector<ExtFiniteField256> rsData;
 
-			int k = detectedQrConfig.dbPerBlockInGroup1;
+			int k = db_deinterleaving_lut.at(block).size();
 			int t = detectedQrConfig.ecbPerBlock;
 			int n = k + t;
 
 			int dbstart	 = block;
-			int eccstart = k * detectedQrConfig.blocksInGroup1 + block;
+			int eccstart = numberOfDb + block;
+			int offset	 = dbstart;
 
 			for (int i = 0; i < k; i++)
 			{
-				rsData.push_back(rawData.at(dbstart + i * detectedQrConfig.blocksInGroup1));
+				rsData.push_back(rawData.at(db_deinterleaving_lut.at(block).at(i)));
 			}
 
 			for (int i = 0; i < t; i++)
 			{
-				rsData.push_back(rawData.at(eccstart + i * detectedQrConfig.blocksInGroup1));
+				rsData.push_back(rawData.at(eccstart + i * blocks));
 			}
 
 			if (debugMode)
@@ -1637,8 +1696,6 @@ class QrDecoder
 				break;
 			}
 		}
-
-#endif
 
 #if 0
 		for (const auto& c : contours)

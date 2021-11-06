@@ -36,8 +36,9 @@ struct GroundTruth data[] = {
 	{"sepa_multi_mode.png",
 	 "BCD\n002\n1\nSCT\nRLNWATWW\n\xC3\x84rzte ohne Grenzen\nAT973200000000518548\n\n\n\nSpende\nSpende f\xC3\xBCr MSF "
 	 "Nothilfe",
-	 true},															  //
-	{"schild_qrcode.jpg", "http://artloops.ch/art-loop-04/e/", true}, //
+	 true},																	//
+	{"schild_qrcode.jpg", "http://artloops.ch/art-loop-04/e/", true},		//
+	{"wifi_key.png", "WIFI:T:WPA;S:Netzwerkname (SSID);P:HowdyHo;;", true}, //
 };
 
 TEST(QrTest, Validate)
