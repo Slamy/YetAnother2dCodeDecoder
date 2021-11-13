@@ -78,13 +78,13 @@ template <class FF> class ReedSolomon
 		generator = Polynom<FF>({1});
 		for (int i = 0; i < t; i++)
 		{
-			Polynom<FF> genCoefficient({1, -(FF::getPrimitiveElementPow(i))});
+			Polynom<FF> genCoefficient({1, -(FF::getPrimitiveElementPow(i + 1))});
 			generator = generator * genCoefficient;
 		}
 
 		assert(t == generator.getDegree());
 
-#if 0
+#if 1
 		std::cout << "generator " << generator.asString() << std::endl;
 		for (int i = 0; i < np; i++)
 		{
@@ -141,7 +141,7 @@ template <class FF> class ReedSolomon
 		allSyndromesZero = true;
 		for (int i = 0; i < t; i++)
 		{
-			syndromes.at(i) = message.evaluate(FF::getPrimitiveElementPow(i));
+			syndromes.at(i) = message.evaluate(FF::getPrimitiveElementPow(i + 1));
 			// std::cout << "syndrome " << syndromes.at(i) << std::endl;
 			if (syndromes.at(i) != 0)
 				allSyndromesZero = false;

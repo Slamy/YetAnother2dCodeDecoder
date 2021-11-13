@@ -19,7 +19,7 @@ class ExtFiniteField256
 {
   private:
 	/// irreducible polynomial used to reduce a number to the field space
-	static constexpr int irreducible_primitive_polynomial = 0x11d; // GF(2^8) for QR codes
+	static constexpr int irreducible_primitive_polynomial = 0x12D; // GF(2^8) for QR codes
 
 	/// Stored number
 	uint8_t num;

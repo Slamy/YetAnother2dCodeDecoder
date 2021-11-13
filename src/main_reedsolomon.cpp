@@ -126,14 +126,25 @@ void reedSolomonTest2()
 
 void reedSolomonTest3()
 {
-	int n = 44;
-	int t = 10;
-	int k = n - t;
+	int n = 12;
+	int t = 7;
+	int k = 5;
 	RS::ReedSolomon<ExtFiniteField256> rs(n, k);
 
 	auto recv_message = Polynom<ExtFiniteField256>({
-		65,	 118, 135, 71,	71, 7,	 51, 162, 242, 244, 23, 38,	 214, 150, 228, 134, 22,  230, 151, 54, 54,	 130,
-		230, 70,  80,  236, 17, 236, 17, 236, 17,  236, 17, 236, 56,  62,  186, 153, 194, 38,  202, 92, 253, 96,
+		70,
+		79,
+		68,
+		131,
+		129,
+
+		4,
+		133,
+		98,
+		49,
+		253,
+		53,
+		182,
 	});
 
 	try

@@ -18,34 +18,7 @@
 #include <numeric>
 #include <opencv2/opencv.hpp>
 
-class QrCodeException : public std::exception
-{
-  public:
-	enum class Cause
-	{
-		kFileNotReadable,
-		kNotEnoughFinderPattern,
-		kVersionNotSupported,
-		kFormatNotDetected
-	};
-
-	const char* whatStr[4] = {
-		"File not readable",
-		"Unable to detect Finder Pattern",
-		"Qr Code Size / Version not supported",
-		"Format not detected",
-	};
-	const Cause cause_;
-
-	QrCodeException(Cause c) : cause_(c)
-	{
-	}
-
-	const char* what() const noexcept override
-	{
-		return whatStr[static_cast<int>(cause_)];
-	}
-};
+#include "qrcodeexception.h"
 
 class FinderPattern
 {
@@ -226,24 +199,6 @@ class QrDecoder
 		throw QrCodeException(QrCodeException::Cause::kVersionNotSupported);
 	}
 
-	static cv::Point calculateLineIntercross(cv::Point a_pos, cv::Point a_dir, cv::Point b_pos, cv::Point b_dir)
-	{
-		Matrix<float> linearsolver{
-			{static_cast<float>(a_dir.x), static_cast<float>(-b_dir.x), static_cast<float>(b_pos.x - a_pos.x)},
-			{static_cast<float>(a_dir.y), static_cast<float>(-b_dir.y), static_cast<float>(b_pos.y - a_pos.y)},
-		};
-
-		auto coefficients = linearsolver.gauss_jordan_elim();
-		assert(coefficients.size() > 0);
-
-		// linearsolver.print();
-		// printf("calculateLineIntercross %d %d %f %d %d\n", a_pos.x, a_pos.y, coefficients.at(0), a_dir.x, a_dir.y);
-
-		cv::Point solution = a_pos + coefficients.at(0) * a_dir;
-
-		return solution;
-	}
-
 	bool isKindaSquare(std::vector<cv::Point> out2)
 	{
 		int maxLen = 0;
@@ -283,6 +238,7 @@ class QrDecoder
 		std::vector<cv::Point> out2;
 		cv::approxPolyDP(inp, out2, 3, true);
 
+		// Calculate longest edge
 		int maxLen = 0;
 		for (int i = 0; i < out2.size(); i++)
 		{
@@ -297,6 +253,7 @@ class QrDecoder
 			}
 		}
 
+		// Collect "long" edges
 		int longEdges = 0;
 		std::vector<cv::Point> corner_points;
 		std::vector<cv::Point> corner_dir;
@@ -312,6 +269,7 @@ class QrDecoder
 			}
 		}
 
+		// Do we have 4 edges? Nice! This is a square.. probably
 		std::vector<cv::Point> out_points;
 		if (longEdges == 4)
 		{
@@ -327,7 +285,6 @@ class QrDecoder
 
 	void searchFinderPatternPoints(int id, int candidateForFinderPattern)
 	{
-
 		for (;;)
 		{
 			double epsilon = 0.05 * cv::arcLength(contours.at(id), true);
@@ -844,10 +801,6 @@ class QrDecoder
 
 		for (int i = 0; i < timing_pattern_black_cells; i++)
 		{
-			// pixelX = halfCellSize + cellX * cellsize
-			// pixelX - halfCellSize = cellX * cellsize
-			// (pixelX - halfCellSize) / cellsize = cellX
-
 			cellX  = 6;
 			cellY  = 8 + 2 * i;
 			pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cellsizeX);
@@ -1518,7 +1471,6 @@ class QrDecoder
 			}
 			raw_decoded_data_extfield.resize(k);
 
-			// std::reverse(raw_decoded_data.begin(), raw_decoded_data.end());
 			for (auto it = std::begin(raw_decoded_data_extfield); it != std::end(raw_decoded_data_extfield); ++it)
 			{
 				raw_decoded_data.push_back(*it);
@@ -1573,7 +1525,7 @@ class QrDecoder
 		// Convert image to grayscale
 		cv::cvtColor(src_image_, src_image_as_grayscale, cv::COLOR_BGR2GRAY);
 
-		// Blur the grayscale image to filter out small artefacts
+		// Blur the grayscale image to filter out small artifacts
 		if (src_image_as_grayscale.cols < 500 || src_image_as_grayscale.rows < 500)
 			cv::resize(src_image_as_grayscale, grayscale_blurred, cv::Size(0, 0), 3, 3);
 		else

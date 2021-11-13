@@ -1,0 +1,9 @@
+--- Credit is given where credit is deserved ---
+
+datamatrix_link_en.png						24x24
+	https://www.free-barcode-generator.net/datamatrix/
+
+https://en.wikipedia.org/wiki/Data_Matrix
+	wikipedia.png							22x22
+	wikipedia_perspective.png				22x22
+

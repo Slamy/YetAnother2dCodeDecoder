@@ -15,7 +15,7 @@ struct GroundTruth
 	bool syndromesExpectedZero;
 };
 
-struct GroundTruth data[] = {
+static struct GroundTruth data[] = {
 	{"Japan-qr-code-billboard.jpg",
 	 "http://sagasou.mobi "
 	 "\r\n\r\nMEBKM:TITLE:\x92T\x82\xBB\x82\xA4\x83\x82\x83r\x82"
