@@ -88,7 +88,7 @@ void reedSolomonTest2()
 	int n = 17;
 	int t = 4;
 	int k = n - t;
-	RS::ReedSolomon<ExtFiniteField256> rs(n, k);
+	RS::ReedSolomon<FFieldQr> rs(n, k);
 
 	int cycles = myPow(3, rs.k);
 	assert(cycles > 0);
@@ -97,17 +97,17 @@ void reedSolomonTest2()
 		if ((i % 10000) == 0)
 			printf("%d / %d\n", i, cycles);
 
-		auto data = generateData<ExtFiniteField256>(i);
+		auto data = generateData<FFieldQr>(i);
 		data.resize(rs.k);
 		auto sent_message = rs.encode(data);
-		auto error		  = Polynom<ExtFiniteField256>({0, 1, 0, 0, 0, //
-													0, 0, 0, 0, 0, //
-													0, 0, 0, 4, 0, //
-													0, 0});
+		auto error		  = Polynom<FFieldQr>({0, 1, 0, 0, 0, //
+										   0, 0, 0, 0, 0, //
+										   0, 0, 0, 4, 0, //
+										   0, 0});
 
 		assert(error.getDegree() <= rs.n);
 
-		Polynom<ExtFiniteField256> recv_message = sent_message + error;
+		Polynom<FFieldQr> recv_message = sent_message + error;
 
 		try
 		{
@@ -129,9 +129,9 @@ void reedSolomonTest3()
 	int n = 12;
 	int t = 7;
 	int k = 5;
-	RS::ReedSolomon<ExtFiniteField256> rs(n, k);
+	RS::ReedSolomon<FFieldQr> rs(n, k);
 
-	auto recv_message = Polynom<ExtFiniteField256>({
+	auto recv_message = Polynom<FFieldQr>({
 		70,
 		79,
 		68,
@@ -171,20 +171,20 @@ int main()
 	FiniteField<prime>::buildReciprocal();
 	FiniteField<prime>::findPrimitiveElement();
 
-	ExtFiniteField256::buildReciprocal();
-	ExtFiniteField256::findPrimitiveElement();
+	FFieldQr::buildReciprocal();
+	FFieldQr::findPrimitiveElement();
 
 	reedSolomonTest3();
 #if 0
 	// return 0;
-	ExtFiniteField256 a(4);
-	ExtFiniteField256 b(3);
+	FFieldQr a(4);
+	FFieldQr b(3);
 
-	std::cout << ExtFiniteField256::xorDiv(0b1010001111010, 0b100011101) << std::endl;
+	std::cout << FFieldQr::xorDiv(0b1010001111010, 0b100011101) << std::endl;
 
 	std::cout << 0b011000011 << std::endl;
 
-	assert(ExtFiniteField256(0b10001001) * ExtFiniteField256(0b00101010) == ExtFiniteField256(0b11000011));
+	assert(FFieldQr(0b10001001) * FFieldQr(0b00101010) == FFieldQr(0b11000011));
 	std::cout << (a + b) << std::endl;
 	std::cout << (a - b) << std::endl;
 	std::cout << (a * b) << std::endl;

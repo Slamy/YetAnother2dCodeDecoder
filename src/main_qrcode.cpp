@@ -23,8 +23,11 @@
  */
 int main(int argc, char** argv)
 {
-	ExtFiniteField256::buildReciprocal();
-	ExtFiniteField256::findPrimitiveElement();
+	FFieldQr::buildReciprocal();
+	FFieldQr::findPrimitiveElement();
+
+	FFieldDm::buildReciprocal();
+	FFieldDm::findPrimitiveElement();
 
 	QrDecoder qr;
 	qr.debugMode	   = true;
@@ -37,7 +40,7 @@ int main(int argc, char** argv)
 	// qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/schild_qrcode.jpg");
 
 	// qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/Qr-projekt-taunusanlage-beethoven-denkmal-2011-ffm-029.jpg");
-	// qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/numeric3.png");
+	// auto ret = qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/numeric3.png");
 	// qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/testcode_car.jpg");
 	// qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/testcode_car2.png");
 	// qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/testcode_weird.png");
@@ -46,8 +49,8 @@ int main(int argc, char** argv)
 	// qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/testcode_ArminHanisch.png");
 	// qr.decodeFromFile("/home/andre/GIT/QrCode/qrcode_ref/wikipedia_rot180.png");
 
-	// auto ret = dm.decodeFromFile("/home/andre/GIT/QrCode/datamatrix_ref/wikipedia.png");
-	auto ret = dm.decodeFromFile("/home/andre/GIT/QrCode/datamatrix_ref/wikipedia_perspective.png");
+	auto ret = dm.decodeFromFile("/home/andre/GIT/QrCode/datamatrix_ref/wikipedia.png");
+	// auto ret = dm.decodeFromFile("/home/andre/GIT/QrCode/datamatrix_ref/wikipedia_perspective.png");
 	// auto ret = dm.decodeFromFile("/home/andre/GIT/QrCode/datamatrix_ref/datamatrix_link_en_big.png");
 	// auto ret = dm.decodeFromFile("/home/andre/GIT/QrCode/datamatrix_ref/datamatrix_link_en.png");
 	// auto ret = dm.decodeFromFile("/home/andre/GIT/QrCode/datamatrix_ref/gen_abc.png");

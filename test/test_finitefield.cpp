@@ -80,5 +80,6 @@ TEST(FiniteFieldTest, MathRules)
 {
 	CheckMathRules<FiniteField19>(19);
 	CheckMathRules<FiniteField7>(7);
-	CheckMathRules<ExtFiniteField256>(256);
+	CheckMathRules<FFieldDm>(256);
+	CheckMathRules<FFieldQr>(256);
 }

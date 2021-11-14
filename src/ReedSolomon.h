@@ -68,17 +68,20 @@ template <class FF> class ReedSolomon
 	/// Also number of syndroms
 	const int t = n - k;
 
+	const int generator_degree_offset_ = 0;
+
 	/**
 	 * Create a encoder/decoder with these code parameters
 	 * @param np	Number of symbols total
 	 * @param kp	Number of symbols for actual payload data
 	 */
-	ReedSolomon(int np, int kp) : n(np), k(kp), t(np - kp)
+	ReedSolomon(int np, int kp, int generator_degree_offset = 0)
+		: n(np), k(kp), t(np - kp), generator_degree_offset_(generator_degree_offset)
 	{
 		generator = Polynom<FF>({1});
 		for (int i = 0; i < t; i++)
 		{
-			Polynom<FF> genCoefficient({1, -(FF::getPrimitiveElementPow(i + 1))});
+			Polynom<FF> genCoefficient({1, -(FF::getPrimitiveElementPow(i + generator_degree_offset))});
 			generator = generator * genCoefficient;
 		}
 
@@ -141,7 +144,7 @@ template <class FF> class ReedSolomon
 		allSyndromesZero = true;
 		for (int i = 0; i < t; i++)
 		{
-			syndromes.at(i) = message.evaluate(FF::getPrimitiveElementPow(i + 1));
+			syndromes.at(i) = message.evaluate(FF::getPrimitiveElementPow(i + generator_degree_offset_));
 			// std::cout << "syndrome " << syndromes.at(i) << std::endl;
 			if (syndromes.at(i) != 0)
 				allSyndromesZero = false;

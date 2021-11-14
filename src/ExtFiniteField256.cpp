@@ -7,5 +7,10 @@
 
 #include "ExtFiniteField256.h"
 
-std::array<uint8_t, 256> ExtFiniteField256::reciprocal;
-ExtFiniteField256 ExtFiniteField256::primitiveElement;
+template <> std::array<uint8_t, 256> FFieldQr::reciprocal;
+
+template <> FFieldQr FFieldQr::primitiveElement;
+
+template <> std::array<uint8_t, 256> FFieldDm::reciprocal;
+
+template <> FFieldDm FFieldDm::primitiveElement;

@@ -1404,7 +1404,7 @@ class QrDecoder
 
 		for (int block = 0; block < db_blocks_; block++)
 		{
-			std::vector<ExtFiniteField256> rsData;
+			std::vector<FFieldQr> rsData;
 
 			int k = db_deinterleaving_lut_.at(block).size();
 			int t = detected_qr_config_.ecbPerBlock;
@@ -1434,10 +1434,10 @@ class QrDecoder
 				printf("\n");
 			}
 
-			RS::ReedSolomon<ExtFiniteField256> rs(n, k);
+			RS::ReedSolomon<FFieldQr> rs(n, k);
 			std::reverse(rsData.begin(), rsData.end());
 
-			auto rsPolynomial		= Polynom<ExtFiniteField256>(rsData);
+			auto rsPolynomial		= Polynom<FFieldQr>(rsData);
 			auto syndromes			= rs.calculateSyndromes(rsPolynomial);
 			bool allSyndromesZero	= syndromes.second;
 			code_needed_correction_ = !allSyndromesZero;

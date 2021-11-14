@@ -966,7 +966,7 @@ class DataMatrixDecoder
 
 		uint8_t byte;
 
-		std::vector<ExtFiniteField256> rawData;
+		std::vector<FFieldDm> rawData;
 
 		int n = detected_dm_config_.db + detected_dm_config_.ecb;
 		int k = detected_dm_config_.db;
@@ -1019,9 +1019,9 @@ class DataMatrixDecoder
 			printf("\n");
 		}
 
-		RS::ReedSolomon<ExtFiniteField256> rs(n, k);
+		RS::ReedSolomon<FFieldDm> rs(n, k, 1);
 		std::reverse(rawData.begin(), rawData.end());
-		auto rsPolynomial		= Polynom<ExtFiniteField256>(rawData);
+		auto rsPolynomial		= Polynom<FFieldDm>(rawData);
 		auto syndromes			= rs.calculateSyndromes(rsPolynomial);
 		bool allSyndromesZero	= syndromes.second;
 		code_needed_correction_ = !allSyndromesZero;

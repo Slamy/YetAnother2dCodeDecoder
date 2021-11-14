@@ -19,8 +19,11 @@ int main(int argc, char** argv)
 	FiniteField19::buildReciprocal();
 	FiniteField19::findPrimitiveElement();
 
-	ExtFiniteField256::buildReciprocal();
-	ExtFiniteField256::findPrimitiveElement();
+	FFieldQr::buildReciprocal();
+	FFieldQr::findPrimitiveElement();
+
+	FFieldDm::buildReciprocal();
+	FFieldDm::findPrimitiveElement();
 
 	return RUN_ALL_TESTS();
 }

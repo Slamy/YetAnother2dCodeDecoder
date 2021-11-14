@@ -15,12 +15,10 @@
 /**
  * Based on https://en.wikiversity.org/wiki/Reed%E2%80%93Solomon_codes_for_coders
  */
-class ExtFiniteField256
+
+template <int irreducible_primitive_polynomial> class ExtFiniteField256
 {
   private:
-	/// irreducible polynomial used to reduce a number to the field space
-	static constexpr int irreducible_primitive_polynomial = 0x12D; // GF(2^8) for QR codes
-
 	/// Stored number
 	uint8_t num;
 
@@ -254,6 +252,8 @@ class ExtFiniteField256
 	 */
 	static int xorDiv(int dividend, int divisor)
 	{
+		assert(divisor);
+
 		int dl1 = bit_length(dividend);
 		int dl2 = bit_length(divisor);
 
@@ -326,5 +326,15 @@ class ExtFiniteField256
 		return num;
 	}
 };
+
+template <int ipp> std::array<uint8_t, 256> ExtFiniteField256<ipp>::reciprocal;
+template <int ipp> ExtFiniteField256<ipp> ExtFiniteField256<ipp>::primitiveElement{0};
+
+/// irreducible polynomial used to reduce a number to the field space
+/// 0x12D for Data Matrix
+/// 0x11d for QR codes
+
+using FFieldQr = ExtFiniteField256<0x11d>;
+using FFieldDm = ExtFiniteField256<0x12d>;
 
 #endif /* EXTFINITEFIELD256_H_ */
