@@ -64,4 +64,11 @@ static cv::Point calculateLineIntercross(cv::Point a_pos, cv::Point a_dir, cv::P
 	return solution;
 }
 
+static const cv::Scalar green{0, 255, 0};
+static const cv::Scalar black{0, 0, 0};
+static const cv::Scalar blue{255, 0, 0};
+static const cv::Scalar red{0, 0, 255};
+static const cv::Scalar yellow{0, 255, 255};
+static const cv::Scalar white{255, 255, 255};
+
 #endif /* UTIL_H_ */

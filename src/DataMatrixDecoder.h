@@ -8,12 +8,12 @@
 #ifndef SRC_DATAMATRIXDECODER_H_
 #define SRC_DATAMATRIXDECODER_H_
 
+#include <decoderexception.h>
 #include "ExtFiniteField256.h"
 #include "Matrix.h"
 #include "ReedSolomon.h"
 #include "glm/gtx/vector_angle.hpp"
 #include "glm/vec2.hpp"
-#include "qrcodeexception.h"
 #include "util.h"
 #include <numeric>
 #include <opencv2/opencv.hpp>
@@ -59,12 +59,6 @@ class DataMatrixDecoder
 	TextMode text_mode_set = TextMode::C40_Set_0;
 	std::vector<char> payload_data;
 
-	const cv::Scalar green{0, 255, 0};
-	const cv::Scalar black{0, 0, 0};
-	const cv::Scalar blue{255, 0, 0};
-	const cv::Scalar red{0, 0, 255};
-	const cv::Scalar yellow{0, 255, 255};
-	const cv::Scalar white{255, 255, 255};
 
 	static constexpr int warped_size = 1000;
 	cv::Mat src_image_;
@@ -860,7 +854,7 @@ class DataMatrixDecoder
 		if (!src_image_.data)
 		{
 			printf("No image data \n");
-			throw QrCodeException(QrCodeException::Cause::kFileNotReadable);
+			throw DecoderException(DecoderException::Cause::kFileNotReadable);
 		}
 
 		cv::Mat src_image_as_grayscale, grayscale_blurred;

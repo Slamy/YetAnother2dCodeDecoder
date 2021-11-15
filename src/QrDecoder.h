@@ -15,24 +15,42 @@
 #include "glm/gtx/vector_angle.hpp"
 #include "glm/vec2.hpp"
 #include "util.h"
+#include <decoderexception.h>
 #include <numeric>
 #include <opencv2/opencv.hpp>
 
-#include "qrcodeexception.h"
-
+/**
+ * Helper class for \ref QrDecoder to store data about collected finder patterns.
+ */
 class FinderPattern
 {
   public:
+	/// Position of the corner of the Finder pattern which shares the position with the corner of the Qr Code itself
 	cv::Point outer;
+
+	/// Position of the corner of the Finder pattern on the opposite side of \ref outer.
 	cv::Point inner;
+
+	/// Normalized vector from \ref outer to \ref inner
 	glm::vec2 out_to_in;
+
+	/// Remaining two corners of the Finder pattern
 	std::vector<cv::Point> sides{2};
-	cv::Point outer_to_finderless_edge;
+
+	/// Not normalized vector which points from \ref outer to the corner of the Qr Code which doesn't have the Finder
+	/// pattern.
+	cv::Point outer_to_finderless_corner;
 
 	FinderPattern()
 	{
 	}
 
+	/**
+	 * Create a representation of a Qr code finder pattern
+	 * @param in		Corners of the finder pattern. Must contain 4 points.
+	 * @param center	Should be on average in the middle of the Qr Code. Used to identify orientation of the Finder
+	 * 					Pattern.
+	 */
 	FinderPattern(const std::vector<cv::Point>& in, cv::Point center)
 	{
 		int innerst_id	= -1;
@@ -58,18 +76,28 @@ class FinderPattern
 		out_to_in = glm::normalize(out_to_in);
 	}
 
-	void calculateFinderLessEdgeAngle(FinderPattern& thirdPattern)
+	/**
+	 * Function must only be called for the finder pattern on the top right or left bottom.
+	 * Calculates \ref outer_to_finderless_corner for later use
+	 * @param top_left_pattern	Ref to \ref FinderPattern on the top left
+	 */
+	void calculateFinderLessEdgeAngle(FinderPattern& top_left_pattern)
 	{
-		if (cv::norm(thirdPattern.outer - sides.at(0)) > cv::norm(thirdPattern.outer - sides.at(1)))
-			outer_to_finderless_edge = sides.at(0) - outer;
+		if (cv::norm(top_left_pattern.outer - sides.at(0)) > cv::norm(top_left_pattern.outer - sides.at(1)))
+			outer_to_finderless_corner = sides.at(0) - outer;
 		else
-			outer_to_finderless_edge = sides.at(1) - outer;
+			outer_to_finderless_corner = sides.at(1) - outer;
 	}
 };
 
+/**
+ * Qr Code Decoder
+ * - Doesn't supports a lot versions and sizes. Just for academic purposes.
+ */
 class QrDecoder
 {
   private:
+	/// Prepare the object for another code to read.
 	void reset()
 	{
 		contours.clear();
@@ -85,21 +113,31 @@ class QrDecoder
 		change_row_ = false;
 	}
 
-	const cv::Scalar green{0, 255, 0};
-	const cv::Scalar black{0, 0, 0};
-	const cv::Scalar blue{255, 0, 0};
-	const cv::Scalar red{0, 0, 255};
-	const cv::Scalar white{255, 255, 255};
-
+	/// OpenCV Image which was fed to this decoder.
 	cv::Mat src_image_;
 
+	/// OpenCV Image of the perspective corrected code, after the shape was reconstructed.
+	cv::Mat monochrome_image_warped;
+
+	/// For detection of the Finder Patterns, \ref monochrome_image_warped is vectorized and stored
+	/// in this as a vector of polygons.
 	std::vector<std::vector<cv::Point>> contours;
+
+	/// The vectorizaton process here, stores the result as a tree of polygons.
+	/// This is used to detect a finder pattern as a square inside a square inside a square.
 	std::vector<cv::Vec4i> hierarchy;
 
+	/// Possible 4 corners of finder patterns are stored here for later processing.
+	/// The order and orientation of points is undefined in this state.
 	std::vector<std::vector<cv::Point>> finder_contour_points;
+
+	/// Possible alignment patterns are stored here.
+	/// Those were squares in squares which were not detected as Finder Pattern
 	std::vector<cv::Point> alignment_pattern_centers;
 
+	/// On average near the center of the Qr Code
 	cv::Point average_center_pos;
+
 	std::vector<FinderPattern> finder2;
 
 	static constexpr int warped_size = 1000;
@@ -113,7 +151,6 @@ class QrDecoder
 
 	int size_in_cells_;
 
-	cv::Mat monochrome_image_warped;
 	cv::Point current_cell_position_;
 
 	const char* correctionLevelStr[4] = {"M", "L", "H", "Q"};
@@ -196,7 +233,7 @@ class QrDecoder
 			printf("Unable to find config for version %d with correction level %s\n", version,
 				   correctionLevelStr[detected_format_code_.err]);
 		}
-		throw QrCodeException(QrCodeException::Cause::kVersionNotSupported);
+		throw DecoderException(DecoderException::Cause::kVersionNotSupported);
 	}
 
 	bool isKindaSquare(std::vector<cv::Point> out2)
@@ -589,10 +626,10 @@ class QrDecoder
 
 #if 0
 		cv::circle(src_image_, finder_bottomLeft.outer, 10, blue, 3);
-		cv::circle(src_image_, finder_bottomLeft.outer + finder_bottomLeft.outer_to_finderless_edge, 10, green, 3);
+		cv::circle(src_image_, finder_bottomLeft.outer + finder_bottomLeft.outer_to_finderless_corner, 10, green, 3);
 
 		cv::circle(src_image_, finder_topRight.outer, 10, red, 3);
-		cv::circle(src_image_, finder_topRight.outer + finder_topRight.outer_to_finderless_edge, 10, green, 3);
+		cv::circle(src_image_, finder_topRight.outer + finder_topRight.outer_to_finderless_corner, 10, green, 3);
 
 		cv::circle(src_image_, finder_topLeft.outer, 10, red, 3);
 		cv::circle(src_image_, finder_topLeft.inner, 10, green, 3);
@@ -602,8 +639,8 @@ class QrDecoder
 		cv::Point avg_solution(0, 0);
 		float avg_num = 0;
 
-		solution = calculateLineIntercross(finder_bottomLeft.outer, finder_bottomLeft.outer_to_finderless_edge,
-										   finder_topRight.outer, finder_topRight.outer_to_finderless_edge);
+		solution = calculateLineIntercross(finder_bottomLeft.outer, finder_bottomLeft.outer_to_finderless_corner,
+										   finder_topRight.outer, finder_topRight.outer_to_finderless_corner);
 		avg_solution += solution;
 
 		if (debugMode)
@@ -617,7 +654,7 @@ class QrDecoder
 		{
 			solution =
 				calculateLineIntercross(finder_topLeft.outer, alignment_pattern_centers.at(0) - finder_topLeft.outer,
-										finder_topRight.outer, finder_topRight.outer_to_finderless_edge);
+										finder_topRight.outer, finder_topRight.outer_to_finderless_corner);
 			avg_solution += solution;
 			if (debugMode)
 			{
@@ -627,7 +664,7 @@ class QrDecoder
 			avg_num++;
 
 			solution =
-				calculateLineIntercross(finder_bottomLeft.outer, finder_bottomLeft.outer_to_finderless_edge,
+				calculateLineIntercross(finder_bottomLeft.outer, finder_bottomLeft.outer_to_finderless_corner,
 										finder_topLeft.outer, alignment_pattern_centers.at(0) - finder_topLeft.outer);
 			avg_solution += solution;
 			if (debugMode)
@@ -1095,7 +1132,7 @@ class QrDecoder
 
 		if (minimalDist > 3)
 		{
-			throw QrCodeException(QrCodeException::Cause::kFormatNotDetected);
+			throw DecoderException(DecoderException::Cause::kFormatNotDetected);
 		}
 
 		if (debugMode)
@@ -1515,7 +1552,7 @@ class QrDecoder
 		if (!src_image_.data)
 		{
 			printf("No image data \n");
-			throw QrCodeException(QrCodeException::Cause::kFileNotReadable);
+			throw DecoderException(DecoderException::Cause::kFileNotReadable);
 		}
 
 		cv::Mat src_image_as_grayscale, grayscale_blurred;
@@ -1557,7 +1594,7 @@ class QrDecoder
 				cv::waitKey(0);
 			}
 
-			throw QrCodeException(QrCodeException::Cause::kNotEnoughFinderPattern);
+			throw DecoderException(DecoderException::Cause::kNotEnoughFinderPattern);
 		}
 
 		// Find the average of all finder pattern points to check where the center of the code might be

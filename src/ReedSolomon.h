@@ -68,20 +68,26 @@ template <class FF> class ReedSolomon
 	/// Also number of syndroms
 	const int t = n - k;
 
+	/**
+	 * The \ref generator polynomial is constructed like this:
+	 * g(x) = (x - a^i) * (x - a^(i+1)) * (x - a^(i+2))
+	 * But i can vary and must be the same for sender and receiver.
+	 * i is defined with generator_degree_offset_
+	 */
 	const int generator_degree_offset_ = 0;
 
 	/**
 	 * Create a encoder/decoder with these code parameters
 	 * @param np	Number of symbols total
 	 * @param kp	Number of symbols for actual payload data
+	 * @param gdo	\ref generator_degree_offset_ for more info
 	 */
-	ReedSolomon(int np, int kp, int generator_degree_offset = 0)
-		: n(np), k(kp), t(np - kp), generator_degree_offset_(generator_degree_offset)
+	ReedSolomon(int np, int kp, int gdo = 0) : n(np), k(kp), t(np - kp), generator_degree_offset_(gdo)
 	{
 		generator = Polynom<FF>({1});
 		for (int i = 0; i < t; i++)
 		{
-			Polynom<FF> genCoefficient({1, -(FF::getPrimitiveElementPow(i + generator_degree_offset))});
+			Polynom<FF> genCoefficient({1, -(FF::getPrimitiveElementPow(i + gdo))});
 			generator = generator * genCoefficient;
 		}
 
