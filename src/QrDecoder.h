@@ -21,6 +21,7 @@
 
 /**
  * Helper class for \ref QrDecoder to store data about collected finder patterns.
+ * Compared to simply being points, this class stores also the orientation of the Finder Pattern.
  */
 class FinderPattern
 {
@@ -104,7 +105,7 @@ class QrDecoder
 		hierarchy.clear();
 		finder_contour_points.clear();
 		alignment_pattern_centers.clear();
-		finder2.clear();
+		finders_orientated.clear();
 
 		cells.clear();
 		debug_cells.clear();
@@ -138,21 +139,40 @@ class QrDecoder
 	/// On average near the center of the Qr Code
 	cv::Point average_center_pos;
 
-	std::vector<FinderPattern> finder2;
+	/// All found Finder patterns whose orientation could be extracted.
+	std::vector<FinderPattern> finders_orientated;
 
+	/// Width and Height of perspective corrected image
 	static constexpr int warped_size = 1000;
-	float cellsizeX, cellsizeY;
+
+	/// Width of a Cell, a cell being a "pixel" of the code
+	float cellsizeX;
+	/// Height of a Cell, a cell being a "pixel" of the code
+	float cellsizeY;
+
+	/// Usually half of \ref cellsizeX. Used as a starting offset in X and Y direction to scan \ref
+	/// monochrome_image_warped for cells.
 	float half_cell_size_;
+
+	/// Transformation matrix to
 	cv::Mat transform;
 
+	/// Vector of rows of with true being a black cell
 	std::vector<std::vector<bool>> cells;
+	/// Vector of rows of printable characters. Only used for development and debugging to check
+	/// which portion of the code belongs to which data byte
 	std::vector<std::vector<char>> debug_cells;
+
+	/// Internal debugging variable. Only used for \ref debug_cells
 	char debug_cell_val = '_';
 
+	/// Width and Height of the code in "cells"
 	int size_in_cells_;
 
+	/// Used by \ref readBitFromCells to keep track of the current cell in decoding process.
 	cv::Point current_cell_position_;
 
+	/// Only used for debugging to provide textual representation for the error correction level
 	const char* correctionLevelStr[4] = {"M", "L", "H", "Q"};
 
 	static constexpr int kErrM = 0;
@@ -162,13 +182,36 @@ class QrDecoder
 
 	float monochrome_image_inverted_area;
 
-	bool going_up_	 = true;
+	/// Qr code data is stored in columns with a width of 2 cells. If true, the next column is expected
+	/// to be above the current one
+	bool going_up_ = true;
+
+	/**
+	 * With each column of 2 cells to read from the code, we start with the right bit.
+	 * This flag toggles with each fetched cell and indicates that we need to change row.
+	 *
+	 * The order of bits is like so.
+	 * 76
+	 * 54
+	 * 32
+	 * 10
+	 *
+	 * If false, the next cell is to the left of the current one.
+	 * If true, we need to get diagonally up right.
+	 *
+	 */
 	bool change_row_ = false;
 
+	/// Number of data byte blocks in the code, which are stored interleaved for improved
+	/// error correction.
 	int db_blocks_;
+
 	std::vector<std::vector<int>> db_deinterleaving_lut_;
+
+	/// Number of data bytes in total to get from the code
 	int number_of_Db_;
 
+	/// Sum of the number of data bytes and error correction bytes
 	int raw_db_plus_ecb;
 
 	struct FormatCode
@@ -178,23 +221,27 @@ class QrDecoder
 		uint32_t code;
 	};
 
+	/// Format of the code, which is currently processed
 	struct FormatCode detected_format_code_;
 
 	struct QrConfig
 	{
-		int version;
-		int correctionLevel;
-		int ecbPerBlock;
-		int blocksInGroup1;
-		int dbPerBlockInGroup1;
-		int blocksInGroup2;
-		int dbPerBlockInGroup2;
+		int version;			///< Version of Qr Code. Correlates with the size.
+		int correctionLevel;	///< Error correction level from 0 to 3
+		int ecbPerBlock;		///< Error correction bytes per block of data
+		int blocksInGroup1;		///< Number of blocks in group 1
+		int dbPerBlockInGroup1; ///< Data bytes per block in group 1
+		int blocksInGroup2;		///< Number of blocks in group 2
+		int dbPerBlockInGroup2; ///< Data bytes per block in group 2
 	};
 
+	/// Configuration of the code, which is currently process
 	struct QrConfig detected_qr_config_;
 
-	// http://www.cdsy.de/QR-Vorgaben.html
-	// TODO still a lot configs missing
+	/**
+	 * http://www.cdsy.de/QR-Vorgaben.html
+	 * TODO still a lot configurations missing
+	 */
 	const std::initializer_list<QrConfig> configs_{
 		{2, kErrM, 16, 1, 28, 0, 0}, //
 		{5, kErrM, 24, 2, 43, 0, 0}, //
@@ -535,7 +582,7 @@ class QrDecoder
 
 		for (const auto& c : finder_contour_points)
 		{
-			finder2.emplace_back(c, average_center_pos);
+			finders_orientated.emplace_back(c, average_center_pos);
 #if 0
 			FinderPattern pattern(c, average_center_pos);
 			cv::circle(src_image_, pattern.inner, 10, green, 3);
@@ -549,15 +596,15 @@ class QrDecoder
 
 		if (debugMode)
 		{
-			printf("%f %f\n", finder2.at(2).out_to_in.x, finder2.at(2).out_to_in.y);
-			printf("%f %f\n", finder2.at(0).out_to_in.x, finder2.at(0).out_to_in.y);
-			printf("%f %f\n", finder2.at(1).out_to_in.x, finder2.at(1).out_to_in.y);
+			printf("%f %f\n", finders_orientated.at(2).out_to_in.x, finders_orientated.at(2).out_to_in.y);
+			printf("%f %f\n", finders_orientated.at(0).out_to_in.x, finders_orientated.at(0).out_to_in.y);
+			printf("%f %f\n", finders_orientated.at(1).out_to_in.x, finders_orientated.at(1).out_to_in.y);
 		}
 		float angle01, angle02, angle12;
 
-		angle01 = glm::orientedAngle(finder2.at(0).out_to_in, finder2.at(1).out_to_in);
-		angle02 = glm::orientedAngle(finder2.at(0).out_to_in, finder2.at(2).out_to_in);
-		angle12 = glm::orientedAngle(finder2.at(1).out_to_in, finder2.at(2).out_to_in);
+		angle01 = glm::orientedAngle(finders_orientated.at(0).out_to_in, finders_orientated.at(1).out_to_in);
+		angle02 = glm::orientedAngle(finders_orientated.at(0).out_to_in, finders_orientated.at(2).out_to_in);
+		angle12 = glm::orientedAngle(finders_orientated.at(1).out_to_in, finders_orientated.at(2).out_to_in);
 
 		if (debugMode)
 		{
@@ -570,44 +617,44 @@ class QrDecoder
 
 		if (fabs(angle01) > 3)
 		{
-			finder_topLeft = finder2.at(2);
+			finder_topLeft = finders_orientated.at(2);
 			if (angle02 > 0)
 			{
-				finder_bottomLeft = finder2.at(0);
-				finder_topRight	  = finder2.at(1);
+				finder_bottomLeft = finders_orientated.at(0);
+				finder_topRight	  = finders_orientated.at(1);
 			}
 			else
 			{
-				finder_bottomLeft = finder2.at(1);
-				finder_topRight	  = finder2.at(0);
+				finder_bottomLeft = finders_orientated.at(1);
+				finder_topRight	  = finders_orientated.at(0);
 			}
 		}
 		else if (fabs(angle02) > 3)
 		{
-			finder_topLeft = finder2.at(1);
+			finder_topLeft = finders_orientated.at(1);
 			if (angle01 > 0)
 			{
-				finder_bottomLeft = finder2.at(0);
-				finder_topRight	  = finder2.at(2);
+				finder_bottomLeft = finders_orientated.at(0);
+				finder_topRight	  = finders_orientated.at(2);
 			}
 			else
 			{
-				finder_bottomLeft = finder2.at(2);
-				finder_topRight	  = finder2.at(0);
+				finder_bottomLeft = finders_orientated.at(2);
+				finder_topRight	  = finders_orientated.at(0);
 			}
 		}
 		else if (fabs(angle12) > 3)
 		{
-			finder_topLeft = finder2.at(0);
+			finder_topLeft = finders_orientated.at(0);
 			if (angle01 < 0)
 			{
-				finder_bottomLeft = finder2.at(1);
-				finder_topRight	  = finder2.at(2);
+				finder_bottomLeft = finders_orientated.at(1);
+				finder_topRight	  = finders_orientated.at(2);
 			}
 			else
 			{
-				finder_bottomLeft = finder2.at(2);
-				finder_topRight	  = finder2.at(1);
+				finder_bottomLeft = finders_orientated.at(2);
+				finder_topRight	  = finders_orientated.at(1);
 			}
 			// TODO must still be developed
 		}
@@ -1175,6 +1222,11 @@ class QrDecoder
 		return true;
 	}
 
+	/**
+	 * With each call, a cell is extracted from the code and returned.
+	 *
+	 * @return	True, if 1, if black
+	 */
 	bool readBitFromCells()
 	{
 		int& x = current_cell_position_.x;
@@ -1248,6 +1300,12 @@ class QrDecoder
 		return result;
 	}
 
+	/**
+	 * Reads a number of cells and pack them together as a word.
+	 *
+	 * @param bitlen	Number of cells to read
+	 * @return			The resulting word
+	 */
 	int readWordFromCells(int bitlen)
 	{
 		int result = 0;

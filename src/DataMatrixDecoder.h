@@ -8,13 +8,13 @@
 #ifndef SRC_DATAMATRIXDECODER_H_
 #define SRC_DATAMATRIXDECODER_H_
 
-#include <decoderexception.h>
 #include "ExtFiniteField256.h"
 #include "Matrix.h"
 #include "ReedSolomon.h"
 #include "glm/gtx/vector_angle.hpp"
 #include "glm/vec2.hpp"
 #include "util.h"
+#include <decoderexception.h>
 #include <numeric>
 #include <opencv2/opencv.hpp>
 #include <span>
@@ -58,7 +58,6 @@ class DataMatrixDecoder
 
 	TextMode text_mode_set = TextMode::C40_Set_0;
 	std::vector<char> payload_data;
-
 
 	static constexpr int warped_size = 1000;
 	cv::Mat src_image_;
