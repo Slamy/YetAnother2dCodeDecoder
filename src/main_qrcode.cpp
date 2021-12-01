@@ -1,5 +1,5 @@
-/*
- * scanner.cpp
+/**
+ * @file scanner.cpp
  *
  *  Created on: 28.10.2021
  *      Author: andre

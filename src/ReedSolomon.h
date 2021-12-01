@@ -1,5 +1,5 @@
-/*
- * ReedSolomon.h
+/**
+ * @file ReedSolomon.h
  *
  *  Created on: 23.10.2021
  *      Author: andre
@@ -93,7 +93,7 @@ template <class FF> class ReedSolomon
 
 		assert(t == generator.getDegree());
 
-#if 1
+#if 0
 		std::cout << "generator " << generator.asString() << std::endl;
 		for (int i = 0; i < np; i++)
 		{

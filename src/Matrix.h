@@ -1,5 +1,5 @@
-/*
- * Matrix.h
+/**
+ * @file Matrix.h
  *
  *  Created on: 20.10.2021
  *      Author: andre

@@ -1,5 +1,5 @@
-/*
- * qrcodeexception.h
+/**
+ * @file qrcodeexception.h
  *
  *  Created on: 12.11.2021
  *      Author: andre

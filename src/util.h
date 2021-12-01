@@ -1,5 +1,5 @@
-/*
- * util.h
+/**
+ * @file util.h
  *
  *  Created on: 30.10.2021
  *      Author: andre
@@ -33,6 +33,12 @@ static void bin_prnt_byte(int x)
 	printf("\n");
 }
 
+/**
+ * Calculates how many bits are different between the two provided words
+ * @param a		Word a
+ * @param b		Word b
+ * @return		Number of different bits
+ */
 static int hammingDistance(uint16_t a, uint16_t b)
 {
 	int distance = 0;
@@ -46,6 +52,14 @@ static int hammingDistance(uint16_t a, uint16_t b)
 	return distance;
 }
 
+/**
+ * Calculates the cross section of two lines which are defined using a position and a direction vector.
+ * @param a_pos	Position on line A
+ * @param a_dir Direction of line A. Normalization is not required
+ * @param b_pos Position on line B
+ * @param b_dir Direction of line B. Normalization is not required
+ * @return		Position of cross section
+ */
 static cv::Point calculateLineIntercross(cv::Point a_pos, cv::Point a_dir, cv::Point b_pos, cv::Point b_dir)
 {
 	Matrix<float> linearsolver{
@@ -64,11 +78,17 @@ static cv::Point calculateLineIntercross(cv::Point a_pos, cv::Point a_dir, cv::P
 	return solution;
 }
 
+/// OpenCV Color Green
 static const cv::Scalar green{0, 255, 0};
+/// OpenCV Color Black
 static const cv::Scalar black{0, 0, 0};
+/// OpenCV Color Blue
 static const cv::Scalar blue{255, 0, 0};
+/// OpenCV Color Red
 static const cv::Scalar red{0, 0, 255};
+/// OpenCV Color Yellow
 static const cv::Scalar yellow{0, 255, 255};
+/// OpenCV Color White
 static const cv::Scalar white{255, 255, 255};
 
 #endif /* UTIL_H_ */

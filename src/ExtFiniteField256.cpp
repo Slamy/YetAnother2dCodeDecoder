@@ -1,5 +1,5 @@
-/*
- * ExtFiniteField256.cpp
+/**
+ * @file ExtFiniteField256.cpp
  *
  *  Created on: 23.10.2021
  *      Author: andre

@@ -1,5 +1,5 @@
-/*
- * QrDecoder.h
+/**
+ * @file QrDecoder.h
  *
  *  Created on: 30.10.2021
  *      Author: andre
@@ -93,7 +93,12 @@ class FinderPattern
 
 /**
  * Qr Code Decoder
- * - Doesn't supports a lot versions and sizes. Just for academic purposes.
+ *
+ * Doesn't supports a lot of versions and sizes. Just for academic purposes an intended for understandability
+ *
+ * http://www.cdsy.de/QR_Start.html
+ * https://www.swetake.com/qrcode/qr2_en.html
+ * http://www.cdsy.de/Arithmetik/DecodeTXT/QR_DE_Start.php
  */
 class QrDecoder
 {
@@ -101,10 +106,10 @@ class QrDecoder
 	/// Prepare the object for another code to read.
 	void reset()
 	{
-		contours.clear();
-		hierarchy.clear();
-		finder_contour_points.clear();
-		alignment_pattern_centers.clear();
+		contours_.clear();
+		hierarchy_.clear();
+		finder_contour_points_.clear();
+		alignment_pattern_centers_.clear();
 		finders_orientated.clear();
 
 		cells.clear();
@@ -118,23 +123,23 @@ class QrDecoder
 	cv::Mat src_image_;
 
 	/// OpenCV Image of the perspective corrected code, after the shape was reconstructed.
-	cv::Mat monochrome_image_warped;
+	cv::Mat monochrome_image_warped_;
 
-	/// For detection of the Finder Patterns, \ref monochrome_image_warped is vectorized and stored
+	/// For detection of the Finder Patterns, \ref monochrome_image_warped_ is vectorized and stored
 	/// in this as a vector of polygons.
-	std::vector<std::vector<cv::Point>> contours;
+	std::vector<std::vector<cv::Point>> contours_;
 
 	/// The vectorizaton process here, stores the result as a tree of polygons.
 	/// This is used to detect a finder pattern as a square inside a square inside a square.
-	std::vector<cv::Vec4i> hierarchy;
+	std::vector<cv::Vec4i> hierarchy_;
 
 	/// Possible 4 corners of finder patterns are stored here for later processing.
 	/// The order and orientation of points is undefined in this state.
-	std::vector<std::vector<cv::Point>> finder_contour_points;
+	std::vector<std::vector<cv::Point>> finder_contour_points_;
 
 	/// Possible alignment patterns are stored here.
 	/// Those were squares in squares which were not detected as Finder Pattern
-	std::vector<cv::Point> alignment_pattern_centers;
+	std::vector<cv::Point> alignment_pattern_centers_;
 
 	/// On average near the center of the Qr Code
 	cv::Point average_center_pos;
@@ -146,15 +151,15 @@ class QrDecoder
 	static constexpr int warped_size = 1000;
 
 	/// Width of a Cell, a cell being a "pixel" of the code
-	float cellsizeX;
+	float cell_size_x_;
 	/// Height of a Cell, a cell being a "pixel" of the code
-	float cellsizeY;
+	float cell_size_y_;
 
-	/// Usually half of \ref cellsizeX. Used as a starting offset in X and Y direction to scan \ref
-	/// monochrome_image_warped for cells.
+	/// Usually half of \ref cell_size_x_. Used as a starting offset in X and Y direction to scan \ref
+	/// monochrome_image_warped_ for cells.
 	float half_cell_size_;
 
-	/// Transformation matrix to
+	/// Transformation matrix which is used rectify the code to full size
 	cv::Mat transform;
 
 	/// Vector of rows of with true being a black cell
@@ -164,7 +169,7 @@ class QrDecoder
 	std::vector<std::vector<char>> debug_cells;
 
 	/// Internal debugging variable. Only used for \ref debug_cells
-	char debug_cell_val = '_';
+	char debug_cell_val_ = '_';
 
 	/// Width and Height of the code in "cells"
 	int size_in_cells_;
@@ -175,11 +180,12 @@ class QrDecoder
 	/// Only used for debugging to provide textual representation for the error correction level
 	const char* correctionLevelStr[4] = {"M", "L", "H", "Q"};
 
-	static constexpr int kErrM = 0;
-	static constexpr int kErrL = 1;
-	static constexpr int kErrH = 2;
-	static constexpr int kErrQ = 3;
+	static constexpr int kErrM = 0; ///< up to 15% damage
+	static constexpr int kErrL = 1; ///< up to 7% damage
+	static constexpr int kErrH = 2; ///< up to 30% damage
+	static constexpr int kErrQ = 3; ///< up to 25% damage
 
+	/// Product of Width and Height of monochrome_image_inverted as used in \ref decodeFromFile
 	float monochrome_image_inverted_area;
 
 	/// Qr code data is stored in columns with a width of 2 cells. If true, the next column is expected
@@ -206,6 +212,12 @@ class QrDecoder
 	/// error correction.
 	int db_blocks_;
 
+	/**
+	 * Lookup Table to help with the de-interleaving of the data byte blocks.
+	 * The access in the end will be like so:
+	 * rawData.at(db_deinterleaving_lut_.at(block).at(i))
+	 * i is the offset of the byte which we want to have from the provided block.
+	 */
 	std::vector<std::vector<int>> db_deinterleaving_lut_;
 
 	/// Number of data bytes in total to get from the code
@@ -214,16 +226,19 @@ class QrDecoder
 	/// Sum of the number of data bytes and error correction bytes
 	int raw_db_plus_ecb;
 
+	/// Collection of all data, which can be extracted from the Format area of the code
+	/// as well as the BCH code used to describe it in the code
 	struct FormatCode
 	{
-		int err;
-		int mask;
-		uint32_t code;
+		int err;	   ///< Error correction level
+		int mask;	   ///< Type of mask. Refer to \ref applyMask for more info
+		uint32_t code; ///< raw word used to describe this format
 	};
 
 	/// Format of the code, which is currently processed
 	struct FormatCode detected_format_code_;
 
+	/// used for a database to look up config data for any supported version of code
 	struct QrConfig
 	{
 		int version;			///< Version of Qr Code. Correlates with the size.
@@ -239,7 +254,8 @@ class QrDecoder
 	struct QrConfig detected_qr_config_;
 
 	/**
-	 * http://www.cdsy.de/QR-Vorgaben.html
+	 * Currently supported versions and configurations to decode.
+	 * Fetched from http://www.cdsy.de/QR-Vorgaben.html
 	 * TODO still a lot configurations missing
 	 */
 	const std::initializer_list<QrConfig> configs_{
@@ -256,6 +272,11 @@ class QrDecoder
 		{4, kErrQ, 26, 2, 24, 0, 0}, //
 	};
 
+	/**
+	 * Based on the size of the code, the version is calculated. \ref configs_ ist checked for a fitting
+	 * configuration. If a fitting config was found \ref detected_qr_config_ is updated.
+	 * If not, an exception is thrown.
+	 */
 	void grabQrConfig()
 	{
 		// sizeInCells = version * 4 + 17;
@@ -283,8 +304,15 @@ class QrDecoder
 		throw DecoderException(DecoderException::Cause::kVersionNotSupported);
 	}
 
+	/**
+	 * Utility function to detect rounded squares.
+	 *
+	 * @param out2	Contour with variable number of points
+	 * @return		true, if probably a square
+	 */
 	bool isKindaSquare(std::vector<cv::Point> out2)
 	{
+		// Start by calculating the maximum length of an edge
 		int maxLen = 0;
 		for (int i = 0; i < out2.size(); i++)
 		{
@@ -299,9 +327,9 @@ class QrDecoder
 			}
 		}
 
+		// Now count the number of edges which have at least
+		// half of the maximum length
 		int longEdges = 0;
-		std::vector<cv::Point> corner_points;
-		std::vector<cv::Point> corner_dir;
 		for (int i = 0; i < out2.size(); i++)
 		{
 			int j	= (i + 1) % out2.size();
@@ -309,14 +337,20 @@ class QrDecoder
 			if (len > maxLen / 2)
 			{
 				longEdges++;
-				corner_points.push_back(out2.at(i));
-				corner_dir.push_back(out2.at(j) - out2.at(i));
 			}
 		}
 
+		// Only if we have found exactly 4 edges that fit the requirement, we can assume that this is a square.
 		return longEdges == 4;
 	}
 
+	/**
+	 * Is very similar to \ref isKindaSquare but even calculates the square which we are seeing here
+	 * by removing rounded edges using \ref calculateLineIntercross
+	 *
+	 * @param inp	Contour with variable number of points
+	 * @return		Empty vector in case of failure, exactly 4 points in case of success
+	 */
 	std::vector<cv::Point> reconstructSquare(std::vector<cv::Point> inp)
 	{
 		std::vector<cv::Point> out2;
@@ -354,6 +388,7 @@ class QrDecoder
 		}
 
 		// Do we have 4 edges? Nice! This is a square.. probably
+		// Calculate the 4 intercrossing positions of the 4 edges to get a sharp edged square.
 		std::vector<cv::Point> out_points;
 		if (longEdges == 4)
 		{
@@ -367,14 +402,29 @@ class QrDecoder
 		return out_points;
 	}
 
+	/**
+	 * Based on the vector graphic presentation of the image, we try to find a finder pattern.
+	 * We do this by searching for contours with 4 corners which are about the shape of a square.
+	 * Noise is filtered from the contour via cv::approxPolyDP before.
+	 *
+	 * We define a Finder Pattern as a 4 corner shape inside a 4 corner shape inside another 4 corner shape.
+	 * This function is recursive and calls itself with an incremented version of candidateForFinderPattern
+	 * if the current contour is assumed to be a finder pattern square.
+	 *
+	 * This function performs a depth search on the hierarchy of contours.
+	 *
+	 * @param id 							Current index inside \ref contours_
+	 * @param candidateForFinderPattern		Usually 0. Any higher number represents how deep we are inside an assumed
+	 * 										finder pattern
+	 */
 	void searchFinderPatternPoints(int id, int candidateForFinderPattern)
 	{
 		for (;;)
 		{
-			double epsilon = 0.05 * cv::arcLength(contours.at(id), true);
+			double epsilon = 0.05 * cv::arcLength(contours_.at(id), true);
 			std::vector<cv::Point> out;
 			// printf("epsilon %lf\n", epsilon);
-			cv::approxPolyDP(contours.at(id), out, epsilon, true);
+			cv::approxPolyDP(contours_.at(id), out, epsilon, true);
 
 #if 0
 			for (auto& v : out)
@@ -391,19 +441,19 @@ class QrDecoder
 			{
 				if (debugMode)
 				{
-					printf("Contour %d %d %d %d %lf\n", id, contours.at(id).size(), out.size(),
+					printf("Contour %d %d %d %d %lf\n", id, contours_.at(id).size(), out.size(),
 						   candidateForFinderPattern, area);
 				}
 
 				if (candidateForFinderPattern == 2)
 				{
-					int outer1 = hierarchy.at(id)[3];
-					int outer2 = hierarchy.at(outer1)[3];
+					int outer1 = hierarchy_.at(id)[3];
+					int outer2 = hierarchy_.at(outer1)[3];
 					std::vector<cv::Point> out2;
 
-					assert(contours.at(outer2).size() >= 4);
+					assert(contours_.at(outer2).size() >= 4);
 
-					cv::approxPolyDP(contours.at(outer2), out2, 3, true);
+					cv::approxPolyDP(contours_.at(outer2), out2, 3, true);
 
 					// cv::polylines(src_image_, contours.at(outer2), true, red, 5, cv::LINE_AA);
 					// cv::polylines(src_image_, contours.at(outer1), true, red, 5, cv::LINE_AA);
@@ -414,7 +464,7 @@ class QrDecoder
 						{
 							printf("Direct use!\n");
 						}
-						finder_contour_points.push_back(out2);
+						finder_contour_points_.push_back(out2);
 					}
 					else
 					{
@@ -422,25 +472,25 @@ class QrDecoder
 						{
 							printf("reconstructSquare!\n");
 						}
-						auto square = reconstructSquare(contours.at(outer2));
+						auto square = reconstructSquare(contours_.at(outer2));
 
 						if (square.size() == 4)
 						{
-							finder_contour_points.push_back(square);
+							finder_contour_points_.push_back(square);
 						}
 					}
 				}
 				else if (candidateForFinderPattern == 1)
 				{
 
-					int outer1 = hierarchy.at(id)[3];
-					int inner  = hierarchy.at(id)[2];
+					int outer1 = hierarchy_.at(id)[3];
+					int inner  = hierarchy_.at(id)[2];
 
 					if (inner == -1)
 					{
 						std::vector<cv::Point> out2;
-						double epsilon = 0.02 * cv::arcLength(contours.at(outer1), true);
-						cv::approxPolyDP(contours.at(outer1), out2, epsilon, true);
+						double epsilon = 0.02 * cv::arcLength(contours_.at(outer1), true);
+						cv::approxPolyDP(contours_.at(outer1), out2, epsilon, true);
 
 						if (out2.size() == 4 && isKindaSquare(out2))
 						{
@@ -456,7 +506,7 @@ class QrDecoder
 							}
 
 							cv::circle(src_image_, center, 4, red, 2);
-							alignment_pattern_centers.push_back(center);
+							alignment_pattern_centers_.push_back(center);
 						}
 					}
 				}
@@ -469,18 +519,25 @@ class QrDecoder
 				nextparam = 0;
 			}
 
-			if (hierarchy.at(id)[2] >= 0)
+			if (hierarchy_.at(id)[2] >= 0)
 			{
-				searchFinderPatternPoints(hierarchy.at(id)[2], nextparam);
+				searchFinderPatternPoints(hierarchy_.at(id)[2], nextparam);
 			}
 
 			// Next contour on this level
-			id = hierarchy.at(id)[0];
+			id = hierarchy_.at(id)[0];
 			if (id == -1)
 				break;
 		}
 	}
 
+	/**
+	 * To improve scanning, the Qr code encoder tries to have evenly distributed black and white cells.
+	 * This is done by selectively inverting the code during the encoding process using a mask.
+	 * 8 different masks are available.
+	 * This function restores the original pattern.
+	 * @param mask Number between 0 to 7
+	 */
 	void applyMask(int mask)
 	{
 		/*
@@ -538,6 +595,11 @@ class QrDecoder
 		}
 	}
 
+	/**
+	 * Calculates the average position for all provided points
+	 * @param in	Points to calculate the average from
+	 * @return		Average positon
+	 */
 	static cv::Point calculateAveragePosition(std::vector<cv::Point> in)
 	{
 		cv::Point result(0, 0);
@@ -553,12 +615,16 @@ class QrDecoder
 		return result;
 	}
 
+	/**
+	 * Tries to find the center of the code, based on assumed finder counter positions.
+	 * Later used to calculate the orientation of the finder patterns.
+	 */
 	void assumeFinderPatternCenter()
 	{
 		average_center_pos.x = 0;
 		average_center_pos.y = 0;
 
-		for (const auto& c : finder_contour_points)
+		for (const auto& c : finder_contour_points_)
 		{
 			assert(c.size() == 4);
 			// cv::polylines(src_image_, c, true, green, 1, cv::LINE_AA);
@@ -570,17 +636,23 @@ class QrDecoder
 			}
 		}
 
-		average_center_pos.x /= (finder_contour_points.size() * 4);
-		average_center_pos.y /= (finder_contour_points.size() * 4);
+		average_center_pos.x /= (finder_contour_points_.size() * 4);
+		average_center_pos.y /= (finder_contour_points_.size() * 4);
 	}
 
+	/**
+	 * At this point we have the position and orientation of the finder patterns.
+	 * Using this knowledge, we can calculate the missing corner of the code at the bottom right
+	 * and also perform perspective correction to stretch the detected code to a full size version
+	 * for easier extraction of cells.
+	 */
 	void reconstructShapeOfCode()
 	{
-		assert(finder_contour_points.size() == 3);
+		assert(finder_contour_points_.size() == 3);
 
 		cv::circle(src_image_, average_center_pos, 10, red, 3);
 
-		for (const auto& c : finder_contour_points)
+		for (const auto& c : finder_contour_points_)
 		{
 			finders_orientated.emplace_back(c, average_center_pos);
 #if 0
@@ -663,11 +735,13 @@ class QrDecoder
 			assert(0);
 		}
 
-		printf("finder top left %d %d\n", finder_topLeft.outer.x, finder_topLeft.outer.y);
-		printf("finder top right %d %d\n", finder_topRight.outer.x, finder_topRight.outer.y);
-		printf("finder bottom left %d %d\n", finder_bottomLeft.outer.x, finder_bottomLeft.outer.y);
-		// cv::circle(image, finder2.at(1).outer, 10, red, 3);
-
+		if (debugMode)
+		{
+			printf("finder top left %d %d\n", finder_topLeft.outer.x, finder_topLeft.outer.y);
+			printf("finder top right %d %d\n", finder_topRight.outer.x, finder_topRight.outer.y);
+			printf("finder bottom left %d %d\n", finder_bottomLeft.outer.x, finder_bottomLeft.outer.y);
+			// cv::circle(image, finder2.at(1).outer, 10, red, 3);
+		}
 		finder_bottomLeft.calculateFinderLessEdgeAngle(finder_topLeft);
 		finder_topRight.calculateFinderLessEdgeAngle(finder_topLeft);
 
@@ -697,10 +771,10 @@ class QrDecoder
 		}
 		avg_num++;
 
-		if (alignment_pattern_centers.size() > 0)
+		if (alignment_pattern_centers_.size() > 0)
 		{
 			solution =
-				calculateLineIntercross(finder_topLeft.outer, alignment_pattern_centers.at(0) - finder_topLeft.outer,
+				calculateLineIntercross(finder_topLeft.outer, alignment_pattern_centers_.at(0) - finder_topLeft.outer,
 										finder_topRight.outer, finder_topRight.outer_to_finderless_corner);
 			avg_solution += solution;
 			if (debugMode)
@@ -712,7 +786,7 @@ class QrDecoder
 
 			solution =
 				calculateLineIntercross(finder_bottomLeft.outer, finder_bottomLeft.outer_to_finderless_corner,
-										finder_topLeft.outer, alignment_pattern_centers.at(0) - finder_topLeft.outer);
+										finder_topLeft.outer, alignment_pattern_centers_.at(0) - finder_topLeft.outer);
 			avg_solution += solution;
 			if (debugMode)
 			{
@@ -785,19 +859,29 @@ class QrDecoder
 		avgs.push_back(cv::norm(dst2[9] - dst2[11]));
 		avgs.push_back(cv::norm(dst2[10] - dst2[11]));
 
-		cellsizeX = (std::accumulate(avgs.begin(), avgs.end(), 0) / avgs.size()) / 7.0f;
-		cellsizeY = cellsizeX;
+		cell_size_x_ = (std::accumulate(avgs.begin(), avgs.end(), 0) / avgs.size()) / 7.0f;
+		cell_size_y_ = cell_size_x_;
 		// std::sort(avgs.begin(), avgs.end());
 		// cellsize = avgs.at(avgs.size() / 2) / 7.0f;
 
 		// auto cellsize	   = cv::norm(dst2[1] - dst2[0]) / 7.0f;
-		half_cell_size_ = cellsizeX / 2.0f;
+		half_cell_size_ = cell_size_x_ / 2.0f;
 		if (debugMode)
 		{
-			printf("cellsize %f %f\n", cv::norm(dst2[1] - dst2[0]), cellsizeX);
+			printf("cellsize %f %f\n", cv::norm(dst2[1] - dst2[0]), cell_size_x_);
 		}
 	}
 
+	/**
+	 * Utility function which gives the vertical distance in pixels from the current point
+	 * until a white pixel is reached. Can be used on the timing pattern cells
+	 * to check how well the cell size is tuned.
+	 *
+	 * @param image		Monochrome image
+	 * @param x			X position of pixel
+	 * @param yStart	Y position of pixel
+	 * @return			Pair of top distance and bottom distance
+	 */
 	std::pair<int, int> verticalDistance(cv::Mat image, int x, int yStart)
 	{
 		int top	   = -1;
@@ -821,6 +905,16 @@ class QrDecoder
 		return std::make_pair(top, bottom);
 	}
 
+	/**
+	 * Utility function which gives the horizontal distance in pixels from the current point
+	 * until a white pixel is reached. Can be used on the timing pattern cells
+	 * to check how well the cell size is tuned.
+	 *
+	 * @param image		Monochrome image
+	 * @param y 		Y position of pixel
+	 * @param xStart	X position of pixel
+	 * @return			Pair of left distance and right distance
+	 */
 	std::pair<int, int> horizontalDistance(cv::Mat image, int xStart, int y)
 	{
 		int left  = -1;
@@ -844,32 +938,47 @@ class QrDecoder
 		return std::make_pair(left, right);
 	}
 
+	/**
+	 * Must be called with a black cell which is surrounded by white cells in at least one
+	 * direction. Is used for timing patterns.
+	 *
+	 * @param pixelX	X position of pixel
+	 * @param pixelY	Y position of pixel
+	 * @param vertical	If true, vertical orientation is used. If false, horizontal
+	 */
 	void optimizeCellsizeWithEnclosedCell(int pixelX, int pixelY, bool vertical)
 	{
-		bool val = monochrome_image_warped.data[monochrome_image_warped.cols * pixelY + pixelX] < 127;
+		bool val = monochrome_image_warped_.data[monochrome_image_warped_.cols * pixelY + pixelX] < 127;
 		assert(val);
 
 		if (vertical)
 		{
-			auto dist = verticalDistance(monochrome_image_warped, pixelX, pixelY);
+			auto dist = verticalDistance(monochrome_image_warped_, pixelX, pixelY);
 			if (debugMode)
 				printf("Vertical distance Start %d %d\n", dist.first, dist.second);
 			// (pixelY + diff - halfCellSize)/y =
-			int diff  = (dist.first - dist.second) / 2;
-			float y	  = round((pixelY - half_cell_size_) / cellsizeY);
-			cellsizeY = (pixelY - diff - half_cell_size_) / y;
+			int diff	 = (dist.first - dist.second) / 2;
+			float y		 = round((pixelY - half_cell_size_) / cell_size_y_);
+			cell_size_y_ = (pixelY - diff - half_cell_size_) / y;
 		}
 		else
 		{
-			auto dist = horizontalDistance(monochrome_image_warped, pixelX, pixelY);
+			auto dist = horizontalDistance(monochrome_image_warped_, pixelX, pixelY);
 			if (debugMode)
 				printf("Horizontal Distance Start %d %d\n", dist.first, dist.second);
-			int diff  = (dist.first - dist.second) / 2;
-			float x	  = round((pixelX - half_cell_size_) / cellsizeX);
-			cellsizeX = (pixelX - diff - half_cell_size_) / x;
+			int diff	 = (dist.first - dist.second) / 2;
+			float x		 = round((pixelX - half_cell_size_) / cell_size_x_);
+			cell_size_x_ = (pixelX - diff - half_cell_size_) / x;
 		}
 	}
 
+	/**
+	 * The cell size was previously approximated using the size of a finder pattern as every finder
+	 * pattern is 7x7 cells in size.
+	 * But this might not be 100% correct for the whole image.
+	 * For this, every QrCode has the timing pattern to detect and correct this.
+	 * We use the horizontal and vertical timing pattern to fine tune \ref cell_size_x_ and \ref cell_size_y_
+	 */
 	void optimizeCellsizeWithTimingPattern()
 	{
 		int pixelX;
@@ -880,36 +989,36 @@ class QrDecoder
 		int timing_pattern_black_cells = (size_in_cells_ - 7 * 2) / 2;
 
 		if (debugMode)
-			printf("cellsize at start %f %f timing_pattern_black_cells %d\n", cellsizeX, cellsizeY,
+			printf("cellsize at start %f %f timing_pattern_black_cells %d\n", cell_size_x_, cell_size_y_,
 				   timing_pattern_black_cells);
 
 		for (int i = 0; i < timing_pattern_black_cells; i++)
 		{
 			cellX  = 6;
 			cellY  = 8 + 2 * i;
-			pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cellsizeX);
-			pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cellsizeY);
+			pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cell_size_x_);
+			pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cell_size_y_);
 			optimizeCellsizeWithEnclosedCell(pixelX, pixelY, true);
 
-			pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cellsizeX);
-			pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cellsizeY);
+			pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cell_size_x_);
+			pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cell_size_y_);
 
-			auto dist = verticalDistance(monochrome_image_warped, pixelX, pixelY);
+			auto dist = verticalDistance(monochrome_image_warped_, pixelX, pixelY);
 			if (debugMode)
 				printf("Vertical distance After %d %d\n", dist.first, dist.second);
 
 			cellX  = 8 + 2 * i;
 			cellY  = 6;
-			pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cellsizeX);
-			pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cellsizeY);
+			pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cell_size_x_);
+			pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cell_size_y_);
 			optimizeCellsizeWithEnclosedCell(pixelX, pixelY, false);
 		}
 
-		if (alignment_pattern_centers.size() > 0)
+		if (alignment_pattern_centers_.size() > 0)
 		{
 			std::array<cv::Point2f, 1> x;
-			x[0].x = alignment_pattern_centers.at(0).x;
-			x[0].y = alignment_pattern_centers.at(0).y;
+			x[0].x = alignment_pattern_centers_.at(0).x;
+			x[0].y = alignment_pattern_centers_.at(0).y;
 			std::array<cv::Point2f, 1> y;
 			cv::perspectiveTransform(x, y, transform);
 			optimizeCellsizeWithEnclosedCell(y[0].x, y[0].y, false);
@@ -919,19 +1028,34 @@ class QrDecoder
 		}
 
 		if (debugMode)
-			printf("cellsize at end %f %f\n", cellsizeX, cellsizeY);
+			printf("cellsize at end %f %f\n", cell_size_x_, cell_size_y_);
 	}
 
-	cv::Point topLeftNudge;
-	cv::Point topRightNudge;
-	cv::Point bottomLeftNudge;
-	cv::Point bottomRightNudge;
-
+	/// Center of top left finder pattern
 	cv::Point topLeftCenterRef;
+	/// Center of top right finder pattern
 	cv::Point topRightCenterRef;
+	/// Center of bottom left finder pattern
 	cv::Point bottomLeftCenterRef;
+	/// Center of bottom right alignment pattern.
+	/// If it doesn't exist it still defines the position where it would be assumed
 	cv::Point bottomRightCenterRef;
 
+	/// Calibrated nudge value for \ref topLeftCenterRef
+	cv::Point topLeftNudge;
+	/// Calibrated nudge value for \ref topRightCenterRef
+	cv::Point topRightNudge;
+	/// Calibrated nudge value for \ref bottomLeftCenterRef
+	cv::Point bottomLeftNudge;
+	/// Calibrated nudge value for \ref bottomRightCenterRef
+	cv::Point bottomRightNudge;
+
+	/**
+	 * Normally a code should be flat. But this might not always be the case with deformed pieces of paper.
+	 * We use the position and shape of the finder patterns and the alignment pattern as reference points
+	 * to calculate an error value which we call the nudge here.
+	 * Using bilinear filtering, those 4 nudge values can be used on the cell positions for better results,
+	 */
 	void calibrateCellNudge()
 	{
 		int pixelX;
@@ -943,73 +1067,73 @@ class QrDecoder
 
 		cellX  = 3;
 		cellY  = 3;
-		pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cellsizeX);
-		pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cellsizeY);
-		vdist  = verticalDistance(monochrome_image_warped, pixelX, pixelY);
-		hdist  = horizontalDistance(monochrome_image_warped, pixelX, pixelY);
-		cv::circle(monochrome_image_warped, cv::Point(pixelX, pixelY), 6, white);
+		pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cell_size_x_);
+		pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cell_size_y_);
+		vdist  = verticalDistance(monochrome_image_warped_, pixelX, pixelY);
+		hdist  = horizontalDistance(monochrome_image_warped_, pixelX, pixelY);
+		cv::circle(monochrome_image_warped_, cv::Point(pixelX, pixelY), 6, white);
 
 		topLeftCenterRef.x = pixelX;
 		topLeftCenterRef.y = pixelY;
 		topLeftNudge.x	   = -(hdist.first - hdist.second) / 2;
 		topLeftNudge.y	   = -(vdist.first - vdist.second) / 2;
 
-		cv::circle(monochrome_image_warped, cv::Point(pixelX, pixelY) + topLeftNudge, 6, white);
+		cv::circle(monochrome_image_warped_, cv::Point(pixelX, pixelY) + topLeftNudge, 6, white);
 
 		// Top right
 		cellX = size_in_cells_ - 4;
 		cellY = 3;
 
-		pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cellsizeX);
-		pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cellsizeY);
-		vdist  = verticalDistance(monochrome_image_warped, pixelX, pixelY);
-		hdist  = horizontalDistance(monochrome_image_warped, pixelX, pixelY);
-		cv::circle(monochrome_image_warped, cv::Point(pixelX, pixelY), 6, white);
+		pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cell_size_x_);
+		pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cell_size_y_);
+		vdist  = verticalDistance(monochrome_image_warped_, pixelX, pixelY);
+		hdist  = horizontalDistance(monochrome_image_warped_, pixelX, pixelY);
+		cv::circle(monochrome_image_warped_, cv::Point(pixelX, pixelY), 6, white);
 
 		topRightCenterRef.x = pixelX;
 		topRightCenterRef.y = pixelY;
 		topRightNudge.x		= -(hdist.first - hdist.second) / 2;
 		topRightNudge.y		= -(vdist.first - vdist.second) / 2;
 
-		cv::circle(monochrome_image_warped, cv::Point(pixelX, pixelY) + topRightNudge, 6, white);
+		cv::circle(monochrome_image_warped_, cv::Point(pixelX, pixelY) + topRightNudge, 6, white);
 
 		// Bottom left
 		cellX = 3;
 		cellY = size_in_cells_ - 4;
 
-		pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cellsizeX);
-		pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cellsizeY);
-		vdist  = verticalDistance(monochrome_image_warped, pixelX, pixelY);
-		hdist  = horizontalDistance(monochrome_image_warped, pixelX, pixelY);
-		cv::circle(monochrome_image_warped, cv::Point(pixelX, pixelY), 6, white);
+		pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cell_size_x_);
+		pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cell_size_y_);
+		vdist  = verticalDistance(monochrome_image_warped_, pixelX, pixelY);
+		hdist  = horizontalDistance(monochrome_image_warped_, pixelX, pixelY);
+		cv::circle(monochrome_image_warped_, cv::Point(pixelX, pixelY), 6, white);
 
 		bottomLeftCenterRef.x = pixelX;
 		bottomLeftCenterRef.y = pixelY;
 		bottomLeftNudge.x	  = -(hdist.first - hdist.second) / 2;
 		bottomLeftNudge.y	  = -(vdist.first - vdist.second) / 2;
 
-		cv::circle(monochrome_image_warped, cv::Point(pixelX, pixelY) + bottomLeftNudge, 6, white);
+		cv::circle(monochrome_image_warped_, cv::Point(pixelX, pixelY) + bottomLeftNudge, 6, white);
 
 		// Alignment Pattern - Bottom Right
 		cellX = size_in_cells_ - 7;
 		cellY = size_in_cells_ - 7;
 
-		pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cellsizeX);
-		pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cellsizeY);
+		pixelX = round(half_cell_size_ + static_cast<float>(cellX) * cell_size_x_);
+		pixelY = round(half_cell_size_ + static_cast<float>(cellY) * cell_size_y_);
 
 		bottomRightCenterRef.x = pixelX;
 		bottomRightCenterRef.y = pixelY;
 
-		if (alignment_pattern_centers.size() > 0)
+		if (alignment_pattern_centers_.size() > 0)
 		{
-			vdist = verticalDistance(monochrome_image_warped, pixelX, pixelY);
-			hdist = horizontalDistance(monochrome_image_warped, pixelX, pixelY);
-			cv::circle(monochrome_image_warped, cv::Point(pixelX, pixelY), 6, white);
+			vdist = verticalDistance(monochrome_image_warped_, pixelX, pixelY);
+			hdist = horizontalDistance(monochrome_image_warped_, pixelX, pixelY);
+			cv::circle(monochrome_image_warped_, cv::Point(pixelX, pixelY), 6, white);
 
 			bottomRightNudge.x = -(hdist.first - hdist.second) / 2;
 			bottomRightNudge.y = -(vdist.first - vdist.second) / 2;
 
-			cv::circle(monochrome_image_warped, cv::Point(pixelX, pixelY) + bottomRightNudge, 6, white);
+			cv::circle(monochrome_image_warped_, cv::Point(pixelX, pixelY) + bottomRightNudge, 6, white);
 		}
 		else
 		{
@@ -1018,19 +1142,36 @@ class QrDecoder
 		}
 	}
 
+	/**
+	 * Performs linear interpolation
+	 *
+	 * @param x1	Left ref point
+	 * @param f_x1	Value at left ref point
+	 * @param x2	Right ref point
+	 * @param f_x2	Value at right ref point
+	 * @param x		Position between Left and right ref point
+	 * @return		Linear interpolated value
+	 */
 	float linearInterpolation(float x1, float f_x1, float x2, float f_x2, float x)
 	{
 		float result = (x - x1) / (x2 - x1) * f_x2 + (x2 - x) / (x2 - x1) * f_x1;
 		return result;
 	}
 
+	/**
+	 * Get pixel position for a given cell coordinate.
+	 * @param x 			Horizontal cell coordinate
+	 * @param y				Vertical cell coordinate
+	 * @param fineNudge		Use nudge system to alter the resulting position
+	 * @return				Pixel position in \ref monochrome_image_warped_
+	 */
 	cv::Point getCellPosition(int x, int y, bool fineNudge)
 	{
 		// Coarse
 		cv::Point point;
 		cv::Point nudge(0, 0);
-		point.x = round(half_cell_size_ + static_cast<float>(x) * cellsizeX);
-		point.y = round(half_cell_size_ + static_cast<float>(y) * cellsizeY);
+		point.x = round(half_cell_size_ + static_cast<float>(x) * cell_size_x_);
+		point.y = round(half_cell_size_ + static_cast<float>(y) * cell_size_y_);
 
 		if (fineNudge)
 		{
@@ -1053,6 +1194,9 @@ class QrDecoder
 		return point + nudge;
 	}
 
+	/**
+	 * Extract a binary representation of the code from \ref monochrome_image_warped_
+	 */
 	void extractCells()
 	{
 		for (int y = 0; y < size_in_cells_; y++)
@@ -1062,17 +1206,24 @@ class QrDecoder
 
 			for (int x = 0; x < size_in_cells_; x++)
 			{
-				auto p					= getCellPosition(x, y, true);
-				auto pNoNudge			= getCellPosition(x, y, false);
-				cells.at(y).at(x)		= monochrome_image_warped.data[monochrome_image_warped.cols * p.y + p.x] < 127;
+				auto p			  = getCellPosition(x, y, true);
+				auto pNoNudge	  = getCellPosition(x, y, false);
+				cells.at(y).at(x) = monochrome_image_warped_.data[monochrome_image_warped_.cols * p.y + p.x] < 127;
 				debug_cells.at(y).at(x) = '-';
 
-				cv::circle(monochrome_image_warped, p, 3, cells.at(y).at(x) ? white : black);
-				cv::circle(monochrome_image_warped, pNoNudge, 1, cells.at(y).at(x) ? white : black);
+				cv::circle(monochrome_image_warped_, p, 3, cells.at(y).at(x) ? white : black);
+				cv::circle(monochrome_image_warped_, pNoNudge, 1, cells.at(y).at(x) ? white : black);
 			}
 		}
 	}
 
+	/**
+	 * The finder pattern on the top left contains one of two format areas.
+	 * Both are equal but in this case we ignore the format pattern on the other finder patterns.
+	 * Reads the cells and performs a hamming distance analysis to get the best fit.
+	 * Throws an exception if no format could be found.
+	 * Capable of detecting the format, even so the format are was damaged.
+	 */
 	void extractFormat()
 	{
 		// from http://www.cdsy.de/formatbereiche.html
@@ -1189,11 +1340,23 @@ class QrDecoder
 		}
 	}
 
+	/**
+	 * Utility function to check if a cell is part of the timing pattern
+	 * @param x 	Horizontal cell coordinate
+	 * @param y		Vertical cell coordinate
+	 * @return		True, if part of timing pattern
+	 */
 	bool isCellOnTimingPattern(int x, int y)
 	{
 		return ((x == 6) || (y == 6));
 	}
 
+	/**
+	 * Utility function to check if a cell is part of actual data
+	 * @param x 	Horizontal cell coordinate
+	 * @param y		Vertical cell coordinate
+	 * @return		True, if cell which represents data
+	 */
 	bool isCellDataBit(int x, int y)
 	{
 		// Top right finder pattern with only one format area at the bottom
@@ -1241,7 +1404,7 @@ class QrDecoder
 			{
 				result = cells.at(y).at(x);
 				// printf("Reading from %d %d  %d\n", x, y, result ? 1 : 0);
-				debug_cells.at(y).at(x) = debug_cell_val;
+				debug_cells.at(y).at(x) = debug_cell_val_;
 				gotDataBit				= true;
 			}
 			else
@@ -1321,6 +1484,18 @@ class QrDecoder
 		return result;
 	}
 
+	/**
+	 * The Qr code uses interleaving of the data for bigger sizes. The data is split in multiple blocks, which
+	 * itself are part of a maximum of 2 groups.
+	 * Each group has a separate configuration for the number of payload and error correction bytes.
+	 * For 2 groups with 2 data blocks, the interleaving is like so
+	 *
+	 * G1B1[0] G1B2[0] G2B1[0] G2B2[0] G1B1[1] G1B2[1] G2B1[1] G2B2[1] ...
+	 * after the data, the error correction bytes follow with the same interleaving order.
+	 *
+	 * This function builds an easy to use lookup table for the next functions which are actualy
+	 * require the data in the correct order.
+	 */
 	void buildDbDeinterleavingLut()
 	{
 		db_blocks_	  = detected_qr_config_.blocksInGroup1 + detected_qr_config_.blocksInGroup2;
@@ -1381,6 +1556,14 @@ class QrDecoder
 		assert(maxSizeOfDbBlock == 0);
 	}
 
+	/**
+	 * With each call a ASCII character is extracted from the bitstream.
+	 * Supports multiple encodings of the QrCode.
+	 * Numeric, Alphanumeric and Byte mode are supported.
+	 *
+	 * @param bitstream	Raw bitstream, generated from the raw data of the QrCode. Must be deinterleaved
+	 * @return			ASCII character.
+	 */
 	std::vector<char> extractPayload(BitStreamReader& bitstream)
 	{
 		bool reading = true;
@@ -1479,7 +1662,7 @@ class QrDecoder
 					uint8_t data = bitstream.readWord(8);
 					payload_data.push_back(data);
 					printf("%c", data);
-					debug_cell_val++;
+					debug_cell_val_++;
 				}
 				printf("\n");
 				break;
@@ -1493,6 +1676,12 @@ class QrDecoder
 		return payload_data;
 	}
 
+	/**
+	 * Uses the previously build deinterleaving lut and performs Reed Solomon decoding to
+	 * check the integrity. Also corrects damaged data.
+	 * @param rawData	Raw data of QrCode
+	 * @return			Original or repaired raw data of QrCode
+	 */
 	std::vector<uint8_t> deinterleaveAndForwardErrorCorrect(std::vector<uint8_t> rawData)
 	{
 		std::vector<uint8_t> raw_decoded_data;
@@ -1586,17 +1775,30 @@ class QrDecoder
 	}
 
   public:
-	std::array<char, 45> alphanumeric_lut = {
+	/**
+	 * Lookup table for the alphanumeric encoding mode
+	 */
+	const std::array<char, 45> alphanumeric_lut = {
 		'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
 		'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
 		'U', 'V', 'W', 'X', 'Y', 'Z', ' ', '$', '%', '*', '+', '-', '.', '/', ':',
 	};
 
+	/// If true, the class is more verbose
 	bool debugMode{false};
+
+	/// If true, the image data is displayed with label data for debugging
 	bool debugModeVisual{false};
 
+	/// Set internally to true, if the Reed Solomon decoder had to correct damaged cells
 	bool code_needed_correction_{false};
 
+	/**
+	 * Reads an image from a file and tries to find and decode an QrCode
+	 * Throws an exception if the decoding was not successful.
+	 * @param filepath	Path to file.
+	 * @return			ASCII Payload data of code
+	 */
 	std::vector<char> decodeFromFile(const char* filepath)
 	{
 		reset();
@@ -1631,14 +1833,14 @@ class QrDecoder
 							  cv::THRESH_BINARY_INV, 131, 0);
 
 		// Find Contours in the monochrome image
-		cv::findContours(monochrome_image_inverted, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
+		cv::findContours(monochrome_image_inverted, contours_, hierarchy_, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 
 		monochrome_image_inverted_area = monochrome_image_inverted.cols * monochrome_image_inverted.rows;
 
 		// Try to find the finder patterns in the contour data
 		searchFinderPatternPoints(0, 0);
 
-		if (finder_contour_points.size() != 3)
+		if (finder_contour_points_.size() != 3)
 		{
 			printf("No 3 finders\n");
 
@@ -1672,7 +1874,7 @@ class QrDecoder
 
 		cv::bitwise_not(monochrome_image_inverted, monochrome_image_normal);
 
-		cv::warpPerspective(monochrome_image_normal, monochrome_image_warped, transform,
+		cv::warpPerspective(monochrome_image_normal, monochrome_image_warped_, transform,
 							cv::Size(warped_size, warped_size));
 
 		if (debugModeVisual)
@@ -1685,7 +1887,7 @@ class QrDecoder
 			cv::waitKey(0);
 		}
 
-		float cellsizeAvg  = (cellsizeX + cellsizeY) / 2;
+		float cellsizeAvg  = (cell_size_x_ + cell_size_y_) / 2;
 		float sizeInCellsF = static_cast<float>(warped_size) / cellsizeAvg;
 
 		size_in_cells_ = round(sizeInCellsF);
@@ -1705,8 +1907,8 @@ class QrDecoder
 			cv::imshow("grayscale_blurred", grayscale_blurred);
 			cv::imshow("monochrome_image_inverted", monochrome_image_inverted);
 			cv::imshow("src_image_", src_image_);
-			cv::imshow("monochrome_image_warped", monochrome_image_warped);
-			cv::imwrite("monochrome_image_warped.png", monochrome_image_warped);
+			cv::imshow("monochrome_image_warped", monochrome_image_warped_);
+			cv::imwrite("monochrome_image_warped.png", monochrome_image_warped_);
 
 			cv::waitKey(0);
 		}
@@ -1748,17 +1950,17 @@ class QrDecoder
 
 		std::vector<uint8_t> rawData;
 		int raw_len_to_read = raw_db_plus_ecb;
-		debug_cell_val		= 'A';
+		debug_cell_val_		= 'A';
 
 		while (raw_len_to_read--)
 		{
 			int data = readWordFromCells(8);
 			rawData.push_back(data);
 
-			if (debug_cell_val == 'Z')
-				debug_cell_val = 'a';
+			if (debug_cell_val_ == 'Z')
+				debug_cell_val_ = 'a';
 			else
-				debug_cell_val++;
+				debug_cell_val_++;
 		}
 
 		if (debugMode)

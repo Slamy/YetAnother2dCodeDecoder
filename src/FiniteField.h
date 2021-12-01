@@ -1,5 +1,5 @@
-/*
- * FiniteField.h
+/**
+ * @file FiniteField.h
  *
  *  Created on: 17.10.2021
  *      Author: andre
@@ -310,7 +310,9 @@ template <int prime> class FiniteField
 template <int prime> std::array<int, prime> FiniteField<prime>::reciprocal;
 template <int prime> FiniteField<prime> FiniteField<prime>::primitiveElement{0};
 
-using FiniteField7	= FiniteField<7>;
+/// Finite Field with the prime number 7 as size
+using FiniteField7 = FiniteField<7>;
+/// Finite Field with the prime number 19 as size
 using FiniteField19 = FiniteField<19>;
 
 #endif /* FINITEFIELD_H_ */

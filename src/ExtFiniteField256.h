@@ -1,5 +1,5 @@
-/*
- * ExtFiniteField256.h
+/**
+ * @file ExtFiniteField256.h
  *
  *  Created on: 23.10.2021
  *      Author: andre
@@ -330,11 +330,10 @@ template <int irreducible_primitive_polynomial> class ExtFiniteField256
 template <int ipp> std::array<uint8_t, 256> ExtFiniteField256<ipp>::reciprocal;
 template <int ipp> ExtFiniteField256<ipp> ExtFiniteField256<ipp>::primitiveElement{0};
 
-/// irreducible polynomial used to reduce a number to the field space
-/// 0x12D for Data Matrix
-/// 0x11d for QR codes
-
+/// irreducible polynomial 0x11d for QR codes
 using FFieldQr = ExtFiniteField256<0x11d>;
+
+/// irreducible polynomial 0x12D for Data Matrix
 using FFieldDm = ExtFiniteField256<0x12d>;
 
 #endif /* EXTFINITEFIELD256_H_ */

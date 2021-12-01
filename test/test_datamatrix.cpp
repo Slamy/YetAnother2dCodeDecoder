@@ -191,6 +191,8 @@ TEST(DmTest, Validate)
 		result = dm.decodeFromFile(path.str().c_str());
 
 		result.push_back('\0');
+		std::cout << "Payload: " << result.data() << std::endl;
+
 		ASSERT_STREQ(result.data(), g.reference_payload);
 
 		ASSERT_EQ(dm.code_needed_correction_, !g.syndromesExpectedZero);
